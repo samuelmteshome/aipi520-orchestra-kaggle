@@ -76,16 +76,38 @@ code{font:12.5px ui-monospace,Menlo,monospace}
 </head>
 <body>
 <main>
-<h1>Pre-modelling review · v2</h1>
+<h1>Pre-modelling review · v3</h1>
 <p class="sub">Your heuristics tested against the training data, the cleaning applied, feature skew and signal, and three candidate models with tuning and validation plans. <b>Nothing has been trained yet.</b> Approve or change the decisions at the end, then the models get run.</p>
 <div class="kpis" id="kpis"></div>
 <nav>
   <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
-  <a href="#v2">What changed</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+  <a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
 </nav>
 
+<section id="v3">
+  <h2>v3 · Delegated modelling proposal, verified</h2>
+  <p class="sub">Requested route <code>cx/gpt-6-astra-high</code> (GPT-6 Astra, high effort, on your ChatGPT/Codex account, no fallback). The gateway reported the serving model as <code>gpt-6-astra-high</code>; the true upstream model can't be confirmed beyond that. Input: the full text of all 9 AIPI 520 decks plus the v2 plan. 60 s. Claude checked every citation against the slide text and every number against the data. Full text: <code>eda/external/modelling_proposal_v3_gpt6astra.md</code>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>What GPT-6 Astra proposed</th><th>Lecture basis</th><th>Claude's check</th><th>In v3?</th></tr></thead>
+    <tbody>
+      <tr><td>Compare L1 (LASSO) vs L2 (ridge) logistic</td><td>W3_H2 s15–17</td><td>Slides match: LASSO for sparsity, ridge for collinearity. Our history features are highly collinear.</td><td>Yes</td></tr>
+      <tr><td>2 pre-specified interactions: recent subscriber × donation count, × ticket seats</td><td>W3_H1 s22–24</td><td>Slides match. Interactions count toward the 25-feature cap.</td><td>Yes</td></tr>
+      <tr><td>Validation curves for regularisation / depth / MLP size</td><td>W2_H1 s37–39</td><td>Slides match; cheap to produce.</td><td>Yes</td></tr>
+      <tr><td>Precision-recall curve as a diagnostic</td><td>W2_H2 s24</td><td>Slides match; doesn't change the objective.</td><td>Yes</td></tr>
+      <tr><td>Tune the MLP's learning rate, weight decay and dropout (12 configs) instead of fixing them</td><td>W8 s70 (LR is the most important hyperparameter), s77</td><td>Slides match. About 4 extra minutes on this CPU.</td><td>Yes</td></tr>
+      <tr><td>Report mean fold AUROC (the lecture's method) <i>and</i> pooled out-of-fold AUROC</td><td>W2_H1 s25, s29</td><td>Slides match.</td><td>Yes</td></tr>
+      <tr><td>Stratify on label × subscribed-2013-14</td><td>W2_H1 s14</td><td>Feasible: the smallest stratum is 50 accounts, so 10 per fold.</td><td>Yes</td></tr>
+      <tr><td>No extra local test split; Kaggle's private set is the untouched test</td><td>W2_H1 s21–28 (lectures don't cover Kaggle)</td><td>Agree: a holdout would cost ~66 of 332 positives.</td><td>Yes</td></tr>
+      <tr><td>Fully nested CV (tune inside inner splits of every outer fold)</td><td>W2_H1 s16–19</td><td>Correct in principle, but timed: random forest ≈ 3–5 s per 500-tree fit, so 24 configs × 3 inner × 25 outer ≈ 1.5–2 h for RF alone.</td><td><b>Your call</b> (see decisions)</td></tr>
+      <tr><td>SVM + Platt scaling; KNN; oversampling</td><td>W5 s29–30, s52–54; W1 s48</td><td>Slides match. Optional / skip: the lectures say KNN is "rarely the best" and that SVMs are often outperformed by RF/NN (W5 s54).</td><td>Optional</td></tr>
+      <tr><td>Skip time-series methods</td><td>W4_H1 s2</td><td>Agree: same-season predictions per account, not an equally spaced series.</td><td>Skip</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><b>Worth knowing before you expect the NN to win:</b> W2_H1 s7 says "tree-based models &gt; deep neural networks on 45 mid-sized tabular datasets." The MLP ensemble stays in as you asked; the lecture evidence says to treat it as a challenger to the random forest.</div>
+</section>
+
 <section id="v2">
-  <h2>What changed in this version</h2>
+  <h2>v2 · What changed</h2>
   <ul class="facts">
     <li><b>Grounded in the AIPI 520 lectures.</b> Choices are cited as (W8 s67) = week 8, slide 67. ChatGPT (GPT-6 Astra, via OmniRoute) drafted the plan from the slides; Claude checked it against the data. Full text: <code>eda/external/lecture_grounded_plan_gpt6astra.md</code>.</li>
     <li><b>ID-cohort pattern is in the model</b> (your decision). Both ID features are always kept, and the CV still reports a with/without comparison for the write-up.</li>
@@ -162,8 +184,8 @@ code{font:12.5px ui-monospace,Menlo,monospace}
     <tbody>
       <tr><td>0a</td><td>Zero-rule</td><td>Every metric needs a baseline (W2_H2 s5). AUROC 0.5; 95.2% "accuracy" shows the imbalance trap (W1 s47).</td><td>none</td></tr>
       <tr><td>0b</td><td>Heuristic: rank by <code>sub_n_last5</code></td><td>Heuristic baseline first (W1 s19; W2_H1 s8). Your recency/frequency rule; AUROC ≈ 0.944.</td><td>none</td></tr>
-      <tr><td>A</td><td>Logistic regression, L2 (ridge)</td><td>Simple regularised model for correlated predictors; default to ridge when unsure (W3_H2 s16–17; W4_H2 s19).</td><td>C log-uniform 1e-3–1e2; class_weight None/balanced; log1p + standardise in-fold (W1 s42–44)</td></tr>
-      <tr><td>B</td><td>Random forest</td><td>Non-linear comparator; the same model the lectures use for embedded selection (W1 s33).</td><td>max_depth 4/6/10/None; min_samples_leaf 2–40; max_features sqrt/0.4/0.7; 24 random configs</td></tr>
+      <tr><td>A</td><td>Logistic regression, L1 vs L2</td><td>Simple regularised model; LASSO for sparsity vs ridge for collinear history features (W3_H2 s15–17; W4_H2 s19).</td><td>penalty L1/L2; C log-uniform 1e-3–1e2; class_weight None/balanced; ± 2 interactions (W3_H1 s22–24); 24 configs; log1p + standardise in-fold</td></tr>
+      <tr><td>B</td><td>Random forest</td><td>Non-linear comparator; the same model the lectures use for embedded selection (W1 s33).</td><td>500 trees; max_depth 4/6/10/None; min_samples_leaf 2–40; max_features sqrt/0.4/0.7; class_weight None/balanced; 24 configs</td></tr>
       <tr><td>C</td><td>MLP ensemble (PyTorch)</td><td>Your request. Learned non-linear combinations (W8 s20–24). It is a challenger here, not the expected winner: NNs shine on huge or unstructured data (W8 s41–42).</td><td>see below</td></tr>
     </tbody>
   </table></div>
@@ -173,7 +195,8 @@ code{font:12.5px ui-monospace,Menlo,monospace}
       <table><tbody>
         <tr><td>architectures</td><td><b>Primary</b> 25 → 32 → 16 → 1, dropout 0.10, weight decay 1e-3<br><b>Capacity check</b> 25 → 64 → 32 → 1, batch norm before each ReLU, no dropout, weight decay 1e-4 (W8 s76–77)</td></tr>
         <tr><td>activation</td><td>ReLU hidden layers, which avoid vanishing gradients (W8 s62); one output logit + sigmoid</td></tr>
-        <tr><td>optimizer</td><td>AdamW, lr 1e-3, no scheduler (W8 s84–85, s87); batch 128</td></tr>
+        <tr><td>optimizer</td><td>AdamW, no scheduler (W8 s84–85, s87); batch 128</td></tr>
+        <tr><td>tuning (v3)</td><td>lr 3e-4/1e-3/3e-3 (W8 s70); weight decay 1e-4/1e-3/1e-2; dropout 0/0.1/0.2 <i>or</i> batch norm (W8 s77); 12 sampled configs screened with 1 seed, finalists × 3 seeds</td></tr>
         <tr><td>regularisation</td><td>early stopping on inner-validation AUROC (max 300 epochs, patience 25), weight decay, dropout (W8 s67–69, s74)</td></tr>
         <tr><td>"multiple"</td><td>3 seeds × each architecture = 6 networks, probabilities averaged. An architecture is kept only if it improves CV.</td></tr>
         <tr><td>imbalance</td><td>Unweighted loss first. AUROC ranks, so balancing isn't required; one weighted-loss variant as a check (W1 s47–48).</td></tr>
@@ -212,11 +235,13 @@ code{font:12.5px ui-monospace,Menlo,monospace}
 <section id="decide">
   <h2>7 · Decisions for you before running</h2>
   <ol class="decide">
-    <li><b>Model line-up:</b> baselines + A (logistic) + B (random forest) + C (MLP ensemble)? Gradient boosting was dropped as it isn't in the lectures; add it back as a 4th?</li>
-    <li><b>Feature cap:</b> 25 features chosen in-fold as above, or cap distance features at one to free 3 slots?</li>
-    <li><b>Missing-value rule:</b> the lecture rule (drop &gt; 50% missing), or an exception for past-subscriber details (package, seats)?</li>
-    <li><b>Final submission:</b> the single best CV model, or the average of A + B + C if out-of-fold evidence shows it helps?</li>
-    <li><b>Kept from before:</b> 2014 first-gift flag stays as a plain feature; ID cohort is in. A with/without ablation is still reported for the write-up.</li>
+    <li><b>Tuning design</b> (the one real trade-off):
+      <br>(a) <b>Tune on one 5-fold split, then score the frozen winners on all 5×5</b>: ~20–30 min total, slightly optimistic scores. This is v2 and is recommended.
+      <br>(b) <b>Fully nested CV</b>, retuning inside every outer fold: the textbook-unbiased version (W2_H1 s16–19), ~2–3 h, mostly random forest.</li>
+    <li><b>Model line-up:</b> zero-rule + heuristic + A (L1/L2 logistic) + B (random forest) + C (MLP ensemble). Add SVM + Platt scaling as an optional 6th?</li>
+    <li><b>Features:</b> 25 chosen in-fold, including the 2 interactions and the 2 ID-cohort features. Cap the four distance features at one?</li>
+    <li><b>Missing-value rule:</b> the lecture rule (drop &gt; 50% missing), or an exception for past-subscriber details?</li>
+    <li><b>Final submission:</b> the best single model, or the A+B+C average only if it beats it on paired out-of-fold results.</li>
   </ol>
 </section>
 
