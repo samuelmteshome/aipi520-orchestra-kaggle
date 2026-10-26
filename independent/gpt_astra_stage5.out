@@ -1,0 +1,3 @@
+[14:20:36] resuming at stage 5 from saved transcript (21 messages)
+[14:20:36] 5_segment: asking cx/gpt-6-astra-high (attempt 1)
+[14:23:27]   reply from gpt-6-astra-high in 171s, usage {'prompt_tokens': 86688, 'completion_tokens': 7186, 'total_tokens': 93874, 'prompt_tokens_details': {'cached_tokens': 86272}, 'completion_tokens_details': {'reasoning_tokens': 516}}

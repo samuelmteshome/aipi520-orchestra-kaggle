@@ -207,11 +207,59 @@ def heuristic_interactions(X):
     }, index=X.index)
 
 
+# ---------------------------------------------------------------- hard-group + geography v2 (user ideas, 2026-10-26)
+VENUE_ZIP = {"San Francisco": "94102", "Berkeley Saturday": "94704", "Berkeley Sunday": "94704", "Peninsula": "94301",
+             "Contra Costa": "94596", "Santa Rosa": "95404", "Orange County": "92660", "Los Angeles": "90012"}
+
+
+def _composers(text):
+    """Composer surnames: ALL-CAPS runs in programme text (same rule as the EDA report)."""
+    import re
+    out, t = set(), str(text)
+    for m in re.finditer(r"[A-Z][A-Z\.]{3,}", t):
+        w = m.group()
+        if re.match(r"\s[A-Z]{2}", t[m.end():m.end() + 3]) or w == "INTERMISSION":
+            continue
+        if m.end() < len(t) and t[m.end()].islower():
+            w = w[:-1]
+        w = w.split(".")[-1]
+        if len(w) >= 4 and not set(w) <= set("IVXLC"):
+            out.add(w.title())
+    return out
+
+
+def geo_hard_features(d, asof):
+    """Distance from home to the venue last attended, relative neighbourhood income, and hard-group (new / returning
+    patron) signals: single tickets in the last season, lapsed 1-3 seasons, tickets to past concerts featuring a
+    composer on the 2014-15 programme."""
+    acc, z = d["account"].set_index("account.id"), d["zipcodes"].set_index("zip5")
+    subs, tix = d["subscriptions"], d["tickets"]
+    s = subs[subs["year"] <= asof].sort_values("year").groupby("account.id").tail(1).set_index("account.id")["location"]
+    t = tix[tix["year"] <= asof].sort_values("year").groupby("account.id").tail(1).set_index("account.id")["location"]
+    last_loc = s.combine_first(t).reindex(acc.index)
+    home = z.reindex(acc["billing.zip5"].values)[["Lat", "Long", "wages_per_return"]].set_axis(acc.index)
+    venue = z.reindex(last_loc.map(VENUE_ZIP).values)[["Lat", "Long"]].set_axis(acc.index)
+    f = pd.DataFrame(index=acc.index)
+    f["geo2_km_last_venue"] = haversine_km(home["Lat"], home["Long"], venue["Lat"], venue["Long"])
+    f["geo2_income_pctile"] = home["wages_per_return"].rank(pct=True)          # relative to all accounts with a zip
+    near = geo_features(d["account"], d["zipcodes"])["geo_km_nearest_venue"]
+    f["geo2_affluent_near"] = (f["geo2_income_pctile"] * np.exp(-near / 15)).fillna(0)
+
+    last = tix[tix["year"] == asof].groupby("account.id")
+    f["hg_tix_concerts_last"] = last.apply(lambda g: g[["set"]].dropna().drop_duplicates().shape[0], include_groups=False).reindex(f.index).fillna(0)
+    f["hg_tix_seats_last"] = last["no.seats"].sum().reindex(f.index).fillna(0)
+    target = set().union(*d["concerts_2014"]["what"].map(_composers))
+    con = d["concerts"].assign(hit=d["concerts"]["what"].map(lambda w: bool(_composers(w) & target)))
+    tk = tix[tix["year"] <= asof].merge(con[["year", "set", "location", "hit"]], on=["year", "set", "location"], how="left")
+    f["hg_composer_overlap"] = tk[tk["hit"] == True].groupby("account.id").size().reindex(f.index).fillna(0)  # noqa: E712
+    return f
+
+
 # ---------------------------------------------------------------- assemble
 FEATURE_GROUPS = {
     "subscriptions": "sub_", "tickets": "tix_", "any_purchase": "any_", "donations": "don_",
     "donations_pre2014": "pre14_", "account_flags": ("has_",), "geography": "geo_", "id_cohort": "id_",
-    "consistency": "cons_", "heuristic_interactions": "hx_",
+    "consistency": "cons_", "heuristic_interactions": "hx_", "geography_v2": "geo2_", "hard_group": "hg_",
 }
 CATEGORICAL = ["sub_last_package", "sub_last_location"]
 
@@ -252,6 +300,11 @@ def build(d, ids, asof=TARGET_YEAR - 1):
         cons = cons.drop(columns=["cons_don_per_year"])
     X = X.join(cons)
     X = X.join(heuristic_interactions(X))
+    gh = geo_hard_features(d, asof).reindex(X.index)
+    if asof < TARGET_YEAR - 1:
+        gh = gh.drop(columns=["geo2_income_pctile", "geo2_affluent_near"])
+    X = X.join(gh)
+    X["hg_lapsed_recent"] = X["sub_seasons_since_last"].between(2, 4).astype(int)
     return X
 
 
