@@ -20,3 +20,6 @@ __pycache__/
 # Model outputs (regenerate with: python3 src/train.py)
 results/
 submissions/
+
+# Independent model runs (transcripts, outputs, data copies)
+independent/runs/
