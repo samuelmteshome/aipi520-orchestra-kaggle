@@ -42,5 +42,9 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 - Generalisation strategy (GPT-6 Astra proposal, verified): deck §Generalisation strategy; experiments 2–7 await the student's choice.
 - `python3 src/experiments.py` (~12 min) → `results/experiments.json`, `submissions/exp_*.csv`. Run 2026-10-26: pruning (drop tix_/ix_ + 3 of 4 distance features) helps all models; best = pruned logistic + pruned forest rank-average, pooled OOF 0.9836 vs 0.9825 (17/25 folds better); MLP adds nothing to the blend; stronger regularisation neutral/worse. Gains are within fold noise.
 
+## Independent LLM pipelines (2026-10-26)
+- `independent/driver.py` relays a staged modelling conversation to an external model via OmniRoute and runs its scripts locally (no Claude design shared). Runs in `independent/runs/` (git-ignored). Comparison: `python3 independent/compare.py` → `independent/llm_comparison.html`.
+- Common-footing OOF AUROC: Claude pruned L+F 0.9818, Gemini 3.8 Flash (for Argon) 0.9773, GPT-6 Astra 0.9728 (nested CV; excluded ID cohort + donation timing). Submissions: `submissions/indep_*.csv`.
+
 ## Deadline
 Due ~2026-10-28 (10 days from 2026-10-18).

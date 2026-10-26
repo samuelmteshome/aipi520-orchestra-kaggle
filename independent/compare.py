@@ -35,11 +35,12 @@ CATEGORIES = [   # (label, regex over feature names)
     ("Donations in 2013", r"don(ation|ated)?_2013"),
     ("Lifetime donations", r"don_count|don_lifetime|don_avg|pre14_|lifetime"),
     ("2014 first-gift flag", r"first_in_2014|first_donat|first\.donated"),
+    ("Donor tenure (from first-gift date)", r"tenure_years|years_since_first|donor_vintage"),
     ("Account-ID cohort", r"^id_|account_id|id_prefix|cohort"),
-    ("Geography / distance", r"^geo_|zip|distance|_km|lat|long"),
+    ("Geography / distance", r"^geo_|zip|dist|_km|(^|_)(lat|long)$|wages"),
     ("Interaction terms", r"^ix_|_and_|_x_|per_subscription"),
     ("Address-completeness flags", r"^has_|shipping|billing|account_record"),
-    ("Concert programme text", r"concert|composer|programme|program"),
+    ("Concert programme / 2014-15 set overlap", r"concert|composer|programme|program|target_sets|offseason_sets"),
 ]
 
 
@@ -75,7 +76,7 @@ def stage_progress(run):
 
 
 def categorise(features):
-    return {lab: sorted(f for f in features if re.search(rx, f)) for lab, rx in CATEGORIES}
+    return {lab: sorted(f for f in features if re.search(rx, f, re.I)) for lab, rx in CATEGORIES}
 
 
 def process_stats(run):
@@ -141,7 +142,9 @@ if (final_dir / "results.json").exists():
         except Exception:
             pass
     gem["features"] = [str(x) for x in feats]
-    gem["excluded"] = "See Gemini's final summary."
+    gem["excluded"] = ("Excluded the account-ID cohort. Kept lifetime donations and donor tenure (from the first-gift date, which can fall in 2014). "
+                       "Uses the billing zip code itself as a numeric feature. Blend weights 50/35/15 fixed by the model after seeing stage results; "
+                       "the same 5 folds (seed 42) were used for every stage.")
     gem["complete"] = True
 else:
     gem.update({"final_model": "Not finished (Google rate limit)", "validation": "", "oof": None, "features": [],
