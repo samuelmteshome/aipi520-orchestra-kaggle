@@ -16,13 +16,26 @@
 </head>
 <body>
 <main>
-<h1>Pre-modelling review</h1>
+<h1>Pre-modelling review · v2</h1>
 <p class="sub">Your heuristics tested against the training data, the cleaning applied, feature skew and signal, and three candidate models with tuning and validation plans. <b>Nothing has been trained yet.</b> Approve or change the decisions at the end, then the models get run.</p>
 <div class="kpis" id="kpis"></div>
 <nav>
   <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
-  <a href="#feat">Features</a><a href="#models">3 models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+  <a href="#v2">What changed</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
 </nav>
+
+<section id="v2">
+  <h2>What changed in this version</h2>
+  <ul class="facts">
+    <li><b>Grounded in the AIPI 520 lectures.</b> Choices are cited as (W8 s67) = week 8, slide 67. ChatGPT (GPT-6 Astra, via OmniRoute) drafted the plan from the slides; Claude checked it against the data. Full text: <code>eda/external/lecture_grounded_plan_gpt6astra.md</code>.</li>
+    <li><b>ID-cohort pattern is in the model</b> (your decision). Both ID features are always kept, and the CV still reports a with/without comparison for the write-up.</li>
+    <li><b>25 features, not 61.</b> They are chosen with the lecture's three-step strategy (W1 s34) inside each CV training fold.</li>
+    <li><b>Neural networks are added.</b> An ensemble of small multi-layer perceptrons (MLPs) in PyTorch replaces gradient boosting, which the lectures don't cover. Timed on this M2: feasible.</li>
+  </ul>
+  <div class="grid">
+    <div class="card wide"><h3>The ID-cohort pattern you asked to keep</h3><p class="cap">Subscription rate by account-ID batch, split by whether the account subscribed in 2013-14. Even among last season's subscribers, the batch matters (Lh 84% vs Nu 52%). Among non-subscribers, newer IDs carry the new-subscriber signal.</p><div class="chart" id="c-id"></div></div>
+  </div>
+</section>
 
 <section id="heur">
   <h2>1 · Your heuristics, checked</h2>
@@ -70,56 +83,52 @@
 </section>
 
 <section id="feat">
-  <h2>4 · Feature set</h2>
-  <p class="sub" id="featsum"></p>
-  <div class="grid" id="feat-groups"></div>
+  <h2>4 · The 25 features (lecture method, W1 s34)</h2>
+  <ol class="facts">
+    <li><b>Null threshold:</b> drop features more than 50% missing (W1 s34). That removes 12, mostly <code>sub_last_*</code>/<code>sub_mean_*</code>, which only exist for past subscribers.</li>
+    <li><b>Filter:</b> rank by mutual information with the label (W1 s31–32), then drop near-duplicates (|Spearman| ≥ 0.95 with a stronger feature) to keep 35 candidates. This removes 17 redundant copies of the same "recent subscriber" or "donor" signal.</li>
+    <li><b>Embedded:</b> random-forest importance picks the final 25 (W1 s33). The two ID features are always kept.</li>
+    <li><b>No leakage:</b> this runs <i>inside each CV training fold</i>, never on validation rows (W2_H1 s16, s19). The table is a full-data preview; "stable" counts how many of 5 folds picked the feature.</li>
+  </ol>
+  <div class="tbl" id="t-sel"></div>
+  <div class="callout warn"><b>Things to know.</b> (1) Random-forest importance favours continuous features, so four overlapping distance features made the cut while compact flags like <code>don_2013_any</code> appear in only 2 of 5 folds. If you prefer, distances can be capped at one (<code>geo_km_nearest_venue</code>) to free 3 slots. (2) Dropping features over 50% missing follows the lecture rule but also drops package/seat details for past subscribers. A justified exception is possible; the lecture-faithful version is the default.</div>
+  <details><summary>Dropped features</summary><p class="cap" id="sel-drop"></p></details>
 </section>
 
 <section id="models">
-  <h2>5 · Three candidate models</h2>
-  <p class="sub">All three use scikit-learn 1.9, which is already installed. LightGBM/XGBoost/Optuna are not installed and aren't needed at this data size. Drafted by GPT-6 Astra via OmniRoute and reviewed by Claude; full text in <code>eda/external/model_plans_gpt6astra.md</code>. AUROC ranges are planning guesses, not measurements.</p>
-  <div class="grid">
-    <div class="card model">
-      <h3>A · Elastic-net logistic regression</h3>
-      <p class="cap">Stable, interpretable baseline. Weak spot: assumes effects add up linearly, so it misses "renewer vs newcomer" interactions.</p>
-      <table><tbody>
-        <tr><td>preprocess</td><td>log1p skewed features; 99 → NaN + "never" flag; median impute + missing flags; standardise; one-hot categoricals (inside each fold)</td></tr>
-        <tr><td>C</td><td>log-uniform 1e-3 – 1e2</td></tr>
-        <tr><td>l1_ratio</td><td>0, .25, .5, .75, 1</td></tr>
-        <tr><td>class_weight</td><td>None, balanced</td></tr>
-        <tr><td>interactions</td><td>off / on (recent-subscriber × key features)</td></tr>
-        <tr><td>search</td><td>random, 30 configs × 5 folds</td></tr>
-        <tr><td>guess</td><td>AUROC 0.94–0.97</td></tr>
-      </tbody></table>
-    </div>
-    <div class="card model m2">
-      <h3>B · Random forest</h3>
-      <p class="cap">Finds thresholds and interactions on its own; bagging keeps variance low. Weak spot: coarse probability ranking, and it can memorise tiny groups (e.g. multiple.subs).</p>
-      <table><tbody>
-        <tr><td>preprocess</td><td>99 → NaN + flag; median impute + missing flags; one-hot; no scaling/log</td></tr>
-        <tr><td>max_depth</td><td>4, 6, 10, None</td></tr>
-        <tr><td>min_samples_leaf</td><td>2, 5, 10, 20, 40</td></tr>
-        <tr><td>max_features</td><td>sqrt, 0.4, 0.7, 1.0</td></tr>
-        <tr><td>max_samples</td><td>0.65, 0.85, 1.0</td></tr>
-        <tr><td>class_weight</td><td>None, balanced_subsample</td></tr>
-        <tr><td>search</td><td>random, 24 configs × 5 folds at 300 trees; finalists refit with 800</td></tr>
-        <tr><td>guess</td><td>AUROC 0.94–0.975</td></tr>
-      </tbody></table>
-    </div>
+  <h2>5 · Model line-up (heuristic → simple ML → alternatives, W2_H1 s8)</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Model</th><th>Why (lecture)</th><th>Tuning (inside CV)</th></tr></thead>
+    <tbody>
+      <tr><td>0a</td><td>Zero-rule</td><td>Every metric needs a baseline (W2_H2 s5). AUROC 0.5; 95.2% "accuracy" shows the imbalance trap (W1 s47).</td><td>none</td></tr>
+      <tr><td>0b</td><td>Heuristic: rank by <code>sub_n_last5</code></td><td>Heuristic baseline first (W1 s19; W2_H1 s8). Your recency/frequency rule; AUROC ≈ 0.944.</td><td>none</td></tr>
+      <tr><td>A</td><td>Logistic regression, L2 (ridge)</td><td>Simple regularised model for correlated predictors; default to ridge when unsure (W3_H2 s16–17; W4_H2 s19).</td><td>C log-uniform 1e-3–1e2; class_weight None/balanced; log1p + standardise in-fold (W1 s42–44)</td></tr>
+      <tr><td>B</td><td>Random forest</td><td>Non-linear comparator; the same model the lectures use for embedded selection (W1 s33).</td><td>max_depth 4/6/10/None; min_samples_leaf 2–40; max_features sqrt/0.4/0.7; 24 random configs</td></tr>
+      <tr><td>C</td><td>MLP ensemble (PyTorch)</td><td>Your request. Learned non-linear combinations (W8 s20–24). It is a challenger here, not the expected winner: NNs shine on huge or unstructured data (W8 s41–42).</td><td>see below</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid" style="margin-top:14px">
     <div class="card model m3">
-      <h3>C · Histogram gradient boosting</h3>
-      <p class="cap">Usually the sharpest ranker on tabular data; handles NaN and categoricals natively. Weak spot: can overfit the ~50 hard positives without depth/regularisation limits.</p>
+      <h3>C · "Multiple and in layers": the MLP ensemble</h3>
       <table><tbody>
-        <tr><td>preprocess</td><td>keep NaN; 99 → NaN + flag; native categoricals; no scaling/log</td></tr>
-        <tr><td>learning_rate</td><td>log-uniform 0.025 – 0.15</td></tr>
-        <tr><td>max_iter</td><td>100, 250, 500</td></tr>
-        <tr><td>max_leaf_nodes</td><td>3, 7, 15, 31</td></tr>
-        <tr><td>min_samples_leaf</td><td>15, 30, 60, 100</td></tr>
-        <tr><td>l2_regularization</td><td>0, 0.1, 1, 10, 30</td></tr>
-        <tr><td>class_weight</td><td>None, balanced</td></tr>
-        <tr><td>search</td><td>random, 30 configs × 5 folds; early stopping off</td></tr>
-        <tr><td>guess</td><td>AUROC 0.95–0.98</td></tr>
+        <tr><td>architectures</td><td><b>Primary</b> 25 → 32 → 16 → 1, dropout 0.10, weight decay 1e-3<br><b>Capacity check</b> 25 → 64 → 32 → 1, batch norm before each ReLU, no dropout, weight decay 1e-4 (W8 s76–77)</td></tr>
+        <tr><td>activation</td><td>ReLU hidden layers, which avoid vanishing gradients (W8 s62); one output logit + sigmoid</td></tr>
+        <tr><td>optimizer</td><td>AdamW, lr 1e-3, no scheduler (W8 s84–85, s87); batch 128</td></tr>
+        <tr><td>regularisation</td><td>early stopping on inner-validation AUROC (max 300 epochs, patience 25), weight decay, dropout (W8 s67–69, s74)</td></tr>
+        <tr><td>"multiple"</td><td>3 seeds × each architecture = 6 networks, probabilities averaged. An architecture is kept only if it improves CV.</td></tr>
+        <tr><td>imbalance</td><td>Unweighted loss first. AUROC ranks, so balancing isn't required; one weighted-loss variant as a check (W1 s47–48).</td></tr>
+        <tr><td>inputs</td><td>median impute + log1p donations + standardise, fitted on training rows only (W1 s50–51)</td></tr>
       </tbody></table>
+    </div>
+    <div class="card model">
+      <h3>Feasible on this MacBook? Yes.</h3>
+      <p class="cap">Measured on this Apple M2 (16 GB), PyTorch 2.13, with random data of the real shape (5,550 × 25, 64-32 network, batch norm):</p>
+      <table><tbody>
+        <tr><td>CPU</td><td><b>2.7 s</b> per 100 epochs</td></tr>
+        <tr><td>Apple GPU (MPS)</td><td>8.7 s per 100 epochs. Slower, because GPU overhead dominates on data this small. Use CPU.</td></tr>
+        <tr><td>full NN plan</td><td>6 networks × 25 CV fits × ≤ 300 epochs ≈ 10–20 min</td></tr>
+      </tbody></table>
+      <p class="cap" style="margin-top:8px">The lectures note CV is often infeasible for NNs (W8 s57). It is feasible here because the networks are tiny. Early stopping uses an inner split <i>inside</i> each training fold, so the scored fold is never seen.</p>
     </div>
   </div>
 </section>
@@ -127,7 +136,7 @@
 <section id="cv">
   <h2>6 · Cross-validation and ensemble plan</h2>
   <ul class="facts">
-    <li><b>Same folds for all three models</b>: repeated stratified 5-fold (5 repeats = 25 fits per config), stratified on <code>label × subscribed-in-2013-14</code>. Each fold then holds ~10 of the hard new/lapsed positives.</li>
+    <li><b>Same folds for every model</b>: repeated stratified 5-fold (5 repeats = 25 fits per config), stratified on <code>label × subscribed-in-2013-14</code>. Each fold then holds ~10 of the hard new/lapsed positives.</li>
     <li><b>Score on pooled out-of-fold AUROC averaged over repeats</b>, not single-fold means: fold-to-fold spread is ~0.04, too noisy to tell 0.96 from 0.97. Models are compared pairwise on identical splits.</li>
     <li><b>Tune on one 5-fold split, confirm on all 5 repeats.</b> The top 3 configs per model get the full 5×5. Ties go to the simpler model.</li>
     <li><b>Report two numbers per model</b>: overall AUROC and AUROC on the hard group (accounts that did <i>not</i> subscribe in 2013-14). Gains there decide the top of the leaderboard but barely move the overall number.</li>
@@ -143,11 +152,11 @@
 <section id="decide">
   <h2>7 · Decisions for you before running</h2>
   <ol class="decide">
-    <li><b>Models:</b> run all three (A, B, C) plus the equal-weight ensemble? Or drop or swap one?</li>
-    <li><b>ID-cohort features</b> (<code>id_cohort_Lh</code>, <code>id_newer_than_Nu</code>): include, exclude, or run both and decide on CV? They encode when the database record was created, not patron behaviour, and you'd need to defend them in the write-up.</li>
-    <li><b>2014 gifts:</b> keep <code>don_first_in_2014</code> as a plain feature (current), or also add sample weights / an interaction to "weight it higher"? Plain inclusion lets the models learn its weight from data. Also: use lifetime totals as-is (include 2014 money) or the strict <code>pre14_</code> versions, or let the ablation decide?</li>
-    <li><b>Time-shifted holdout:</b> build it as an extra check, or skip it for now?</li>
-    <li><b>Search budget:</b> the random-search sizes above (30 / 24 / 30 configs), or larger or smaller?</li>
+    <li><b>Model line-up:</b> baselines + A (logistic) + B (random forest) + C (MLP ensemble)? Gradient boosting was dropped as it isn't in the lectures; add it back as a 4th?</li>
+    <li><b>Feature cap:</b> 25 features chosen in-fold as above, or cap distance features at one to free 3 slots?</li>
+    <li><b>Missing-value rule:</b> the lecture rule (drop &gt; 50% missing), or an exception for past-subscriber details (package, seats)?</li>
+    <li><b>Final submission:</b> the single best CV model, or the average of A + B + C if out-of-fold evidence shows it helps?</li>
+    <li><b>Kept from before:</b> 2014 first-gift flag stays as a plain feature; ID cohort is in. A with/without ablation is still reported for the write-up.</li>
   </ol>
 </section>
 
@@ -182,12 +191,10 @@ table('t-feat', D.table, [['feature','Feature'],['group','Group'],['auc','AUROC'
 if (D.findings.length) table('t-review', D.findings, [['severity','Severity'],['lens','Lens'],['issue','Issue'],['status','Status']]);
 else document.getElementById('t-review').innerHTML = '<p class="cap">Review pending.</p>';
 
+table('t-sel', D.sel, [['feature','Feature'],['rf','RF importance'],['mi','Mutual info'],['missing','% missing'],['stable','Picked in folds']]);
+document.getElementById('sel-drop').innerHTML = '<b>Over 50% missing:</b> ' + D.sel_dropped_missing.map(f=>`<code>${f}</code>`).join(' ') + '<br><b>Near-duplicate of a stronger feature:</b> ' + D.sel_dropped_dup.map(f=>`<code>${f}</code>`).join(' · ');
 const groups = {};
 D.table.forEach(r => (groups[r.group] = groups[r.group] || []).push(r.feature));
-document.getElementById('featsum').textContent = `${D.n_feat} features in ${Object.keys(groups).length + 0} groups (plus 2 categoricals: last package, last venue). Every group can be switched on or off in modelling.`;
-document.getElementById('feat-groups').innerHTML = Object.entries(groups).map(([g,fs]) =>
-  `<div class="card"><h3>${g} <span class="tag">${fs.length}</span></h3><p class="cap" style="line-height:1.7">${fs.map(f=>`<code>${f}</code>`).join(' ')}</p></div>`).join('');
-
 function base(extra={}){
   const t = css('--text-2'), g = css('--grid');
   const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
@@ -211,6 +218,11 @@ function rate(id, d, {h=false}={}){
 }
 function render(){
   const c = S();
+  const ids = Object.entries(D.id_cohort);
+  Plotly.react('c-id', ids.map(([k,d],i)=>({type:'bar', name:k, x:d.x, y:d.rate, customdata:d.n, marker:M(c[i]),
+    text:d.rate.map(v=>v.toFixed(1)+'%'), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+    hovertemplate:`${k}<br>%{x}: %{y:.1f}% (n = %{customdata:,})<extra></extra>`})),
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:{...base().yaxis, ticksuffix:'%', title:{text:'% subscribed',font:{color:css('--text-2'),size:12}}}, xaxis:{...base().xaxis, type:'category'}}), cfg);
   rate('c-rec', D.h_recency); rate('c-ns', D.h_nseasons); rate('c-any', D.h_any); rate('c-streak', D.h_streak);
   rate('c-don', D.h_don); rate('c-donc', D.h_doncount); rate('c-tix', D.h_tix); rate('c-loc', D.h_loc);
   const sm = {x:['no 2014 first gift','first gift in 2014','recent sub, no multiple','recent sub, multiple.subs'],

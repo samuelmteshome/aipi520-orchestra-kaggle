@@ -35,6 +35,8 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 ## Pipeline
 - `python3 src/clean.py` → cleaned parquet in `data/processed/`; `python3 src/features.py` → `features_{train,test}.parquet` + `feature_groups.json` (groups: sub_, tix_, any_, don_, pre14_, has_, geo_, id_).
 - `build(d, ids, asof)` supports time-shifted builds; it drops donation/ID groups when `asof < 2013`.
+- `src/select_features.py`: `select(X, y)` → 25 features (drop >50% missing → mutual-info filter + |Spearman|≥0.95 dedup → RF importance), ID-cohort features always kept; call inside each CV training fold.
+- Student decisions (2026-10-25): include ID-cohort features; cap at 25 features; add a PyTorch MLP ensemble (CPU is ~3× faster than MPS here). Ground modelling choices in AIPI 520 lectures (OneDrive `AIPI 520/Actual Lectures/*.pptx`; W1 feature selection, W2 CV/leakage, W3 regularisation, W8 NNs).
 - Review deck: `python3 presentation/build.py` → `presentation/data_review.html`. Models await the student's approval of the decisions in §7.
 
 ## Deadline

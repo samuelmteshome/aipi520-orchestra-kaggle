@@ -49,6 +49,21 @@ R["h_multi"] = rate("sub_last_multiple", order=[0, 1], data=recent)
 R["h_2014"] = rate("don_first_in_2014", order=[0, 1])
 R["h_streak"] = rate("sub_streak", [0, 1, 2, 3, 5, 10, 21], ["1", "2", "3", "4–5", "6–10", "11–21"], data=recent)
 
+# ---- ID cohort pattern (user decision: include in the model)
+cohort = np.select([X.index.str[:12] == "001i000000Lh", X.index.str[:12] == "001i000000Nu", X.index > "001i000000Nv"],
+                   ["Lh", "Nu", "newer than Nu"], "older/other")
+idd = X.assign(cohort=cohort, recent=np.where(X["sub_last_season"] == 1, "subscribed 2013-14", "did not"))
+gi = idd.groupby(["recent", "cohort"])["label"].agg(["mean", "size"]).reset_index()
+R["id_cohort"] = {r: {"x": d["cohort"].tolist(), "rate": (d["mean"] * 100).round(1).tolist(), "n": d["size"].tolist()}
+                  for r, d in gi.groupby("recent")}
+
+# ---- 25-feature selection preview
+sel = json.loads((ROOT / "data/processed/selection_preview.json").read_text())
+R["sel"] = [{"feature": c, "rf": sel["rf_importance"].get(c), "mi": sel["mi"][c], "missing": round(sel["missing"][c] * 100, 1),
+             "stable": f'{sel["fold_stability"].get(c, 0)}/5'} for c in sel["chosen"]]
+R["sel_dropped_missing"] = sel["dropped_missing"]
+R["sel_dropped_dup"] = [f"{a} ≈ {b}" for a, b in sel["dropped_duplicate"].items()]
+
 # ---- skew / signal table
 group_of = {}
 for g, p in FEATURE_GROUPS.items():
