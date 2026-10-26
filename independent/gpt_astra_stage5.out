@@ -1,3 +1,6 @@
 [14:20:36] resuming at stage 5 from saved transcript (21 messages)
 [14:20:36] 5_segment: asking cx/gpt-6-astra-high (attempt 1)
 [14:23:27]   reply from gpt-6-astra-high in 171s, usage {'prompt_tokens': 86688, 'completion_tokens': 7186, 'total_tokens': 93874, 'prompt_tokens_details': {'cached_tokens': 86272}, 'completion_tokens_details': {'reasoning_tokens': 516}}
+[14:26:23] 5_segment: exit 0, 2.9 min, recomputed AUROC {'segmented_base': 0.96955, 'segmented_base [segment H]': 0.81956, 'segmented_both': 0.97092, 'segmented_both [segment H]': 0.82873, 'segmented_distance': 0.9694, 'segmented_distance [segment H]': 0.81854, 'segmented_income': 0.96965, 'segmented_income [segment H]': 0.82024, 'segmented_selected': 0.97101, 'segmented_selected [segment H]': 0.82938, 'stage4_reference': 0.9728, 'stage4_reference [segment H]': 0.84146}, issues []
+[14:26:47]   reply from gpt-6-astra-high in 24s, usage {'prompt_tokens': 95658, 'completion_tokens': 535, 'total_tokens': 96193, 'prompt_tokens_details': {'cached_tokens': 86528}}
+[14:26:47] done; requested cx/gpt-6-astra-high, gateway-reported serving models ['gpt-6-astra-high']
