@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orchestra Data Summary</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f6f5f2; --surface:#fcfcfb; --border:#e4e2dc;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#ebe9e4;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --seq-lo:#d6e6fa; --seq-hi:#0d4a91; --accent-bg:#eaf2fc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#121211; --surface:#1a1a19; --border:#2e2d2a;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2927;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --seq-lo:#1d3350; --seq-hi:#8fc0ff; --accent-bg:#1a2635;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#121211; --surface:#1a1a19; --border:#2e2d2a;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2927;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --seq-lo:#1d3350; --seq-hi:#8fc0ff; --accent-bg:#1a2635;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:21px;margin:0 0 4px}
+h3{font-size:14px;margin:0 0 2px;font-weight:600}
+.sub{color:var(--text-2);margin:0 0 20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--text-2);font-size:13px}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:24px}
+nav a{color:var(--text-2);text-decoration:none;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+nav a:hover{color:var(--text);border-color:var(--muted)}
+section{margin:0 0 40px;scroll-margin-top:60px}
+.head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tag{font:12px ui-monospace,Menlo,monospace;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1px 7px}
+.facts{margin:8px 0 14px;padding-left:20px;color:var(--text-2)}
+.facts li{margin:2px 0}.facts b{color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 14px 6px;min-width:0}
+.card p.cap{color:var(--muted);font-size:12.5px;margin:0 0 4px}
+.chart{height:280px;width:100%}
+.chart.tall{height:380px}
+.wide{grid-column:1/-1}
+.callout{background:var(--accent-bg);border:1px solid var(--border);border-left:3px solid var(--s1);border-radius:8px;padding:12px 16px;margin:12px 0;color:var(--text)}
+.callout.warn{border-left-color:var(--s4)}
+details{margin-top:12px}
+summary{cursor:pointer;color:var(--text-2);font-size:13px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--text-2);font-weight:600}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+code{font:12.5px ui-monospace,Menlo,monospace}
+@media (max-width:600px){.grid{grid-template-columns:1fr}.chart{height:250px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Orchestra subscription data — summary</h1>
+<p class="sub">Classical Music Meets Classical ML (Fall 2026). Goal: predict, for each account in <code>test.csv</code>, the probability that the patron buys a 2014-15 season subscription. Metric: AUROC. Hover any chart for exact values.</p>
+
+<div class="kpis" id="kpis"></div>
+
+<nav>
+  <a href="#signals">Key signals</a><a href="#trainset">train / test</a><a href="#account">account</a>
+  <a href="#subs">subscriptions</a><a href="#tix">tickets_all</a><a href="#concerts">concerts</a>
+  <a href="#zip">zipcodes</a><a href="#quality">Data quality</a>
+</nav>
+
+<section id="signals">
+  <h2>Key signals at a glance</h2>
+  <p class="sub">Share of training accounts that subscribed in 2014-15 (label = 1), split by simple account traits. Base rate is <b id="baserate"></b>.</p>
+  <div class="grid">
+    <div class="card wide"><h3>Subscription rate: accounts with vs. without each trait</h3><p class="cap">Train set only. Hover for group sizes.</p><div class="chart tall" id="c-signals"></div></div>
+    <div class="card"><h3>Rate by number of past seasons subscribed</h3><p class="cap">From subscriptions.csv, 1993-94 to 2013-14.</p><div class="chart" id="c-nseas"></div></div>
+    <div class="card"><h3>Rate by most recent season subscribed</h3><p class="cap">Recency dominates: lapsed subscribers rarely return.</p><div class="chart" id="c-last"></div></div>
+    <div class="card"><h3>Rate by lifetime donation amount</h3><p class="cap">From account.csv.</p><div class="chart" id="c-ratedon"></div></div>
+    <div class="card"><h3>Rate by billing city (top 10)</h3><p class="cap">From account.csv.</p><div class="chart" id="c-ratecity"></div></div>
+  </div>
+</section>
+
+<section id="trainset">
+  <div class="head"><h2>train.csv / test.csv / sample_submission.csv</h2><span class="tag">account.id, label</span></div>
+  <ul class="facts" id="f-train"></ul>
+  <div class="grid">
+    <div class="card"><h3>Class balance in train</h3><p class="cap">Heavily imbalanced; AUROC is insensitive to this, but stratify CV folds.</p><div class="chart" id="c-balance"></div></div>
+    <div class="card"><h3>Coverage: % of accounts appearing in each history file</h3><p class="cap">Every account is in account.csv; most never subscribed or bought tickets.</p><div class="chart" id="c-cov"></div></div>
+  </div>
+</section>
+
+<section id="account">
+  <div class="head"><h2>account.csv</h2><span class="tag">1 row per patron</span></div>
+  <ul class="facts">
+    <li><b>19,833 accounts</b>: every train and test account, plus ~10k others.</li>
+    <li>Location (<code>billing.zip.code</code>, <code>billing.city</code>, rarely <code>shipping.*</code>) and donation history (<code>amount.donated.2013</code>, <code>amount.donated.lifetime</code>, <code>no.donations.lifetime</code>, <code>first.donated</code>).</li>
+    <li>Only <b>28% have ever donated</b>; donation amounts are extremely right-skewed (max $2.29M lifetime).</li>
+    <li>File is <b>Latin-1 encoded</b>, not UTF-8. Read with <code>encoding="latin-1"</code>.</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Lifetime donation amount</h3><p class="cap">Accounts per bucket.</p><div class="chart" id="c-don"></div></div>
+    <div class="card"><h3>Number of lifetime donations</h3><p class="cap">Accounts per bucket.</p><div class="chart" id="c-ndon"></div></div>
+    <div class="card"><h3>Year of first donation</h3><p class="cap">Donors only (28%). Runs to Sept 2014.</p><div class="chart" id="c-fdon"></div></div>
+    <div class="card"><h3>Missing values by column</h3><p class="cap">% of rows null.</p><div class="chart" id="c-accnull"></div></div>
+    <div class="card"><h3>Top billing cities</h3><p class="cap">Bay Area patrons dominate.</p><div class="chart" id="c-city"></div></div>
+    <div class="card"><h3>Relationship tag</h3><p class="cap">Only 3.3% of accounts have one.</p><div class="chart" id="c-rel"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-account"></div></details>
+</section>
+
+<section id="subs">
+  <div class="head"><h2>subscriptions.csv</h2><span class="tag">1 row per account × season</span></div>
+  <ul class="facts">
+    <li><b>28,627 rows</b>, <b>6,267 accounts</b>, 21 seasons (1993-94 to 2013-14). No row for 2014-15, which is the target.</li>
+    <li>Columns: <code>package</code> (Full, Quartet, Trio…), <code>no.seats</code>, <code>location</code> (venue series), <code>section</code>, <code>price.level</code>, <code>subscription_tier</code>, <code>multiple.subs</code>.</li>
+    <li>32% of train accounts and 32% of test accounts appear here.</li>
+    <li>Volume has fallen from ~1,900 subscriptions per season in the late 1990s to ~1,000 now.</li>
+  </ul>
+  <div class="grid">
+    <div class="card wide"><h3>Subscriptions per season, by package</h3><p class="cap">Stacked counts. "Other" = Quartet A/B, CYO, Full upgrade, missing.</p><div class="chart tall" id="c-mix"></div></div>
+    <div class="card"><h3>Venue series (location)</h3><div class="chart" id="c-sloc"></div></div>
+    <div class="card"><h3>Section</h3><div class="chart" id="c-ssec"></div></div>
+    <div class="card"><h3>Price level</h3><p class="cap">1 = most expensive (assumed). 12% missing.</p><div class="chart" id="c-sprice"></div></div>
+    <div class="card"><h3>Seats per subscription</h3><div class="chart" id="c-sseats"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-subs"></div></details>
+</section>
+
+<section id="tix">
+  <div class="head"><h2>tickets_all.csv</h2><span class="tag">1 row per single-ticket purchase</span></div>
+  <ul class="facts">
+    <li><b>2,808 rows</b>, <b>2,049 accounts</b>, only 4 seasons (2010-11 to 2013-14).</li>
+    <li>Covers 10% of train and test accounts, so the signal is sparse.</li>
+    <li><code>price.level</code> is mixed type: 0–4 plus "Adult", "Youth", "GA" and a stray "4.0". Clean it before use.</li>
+    <li><code>marketing.source</code> is 79% missing. <code>set</code> links to the concert set number in concerts.csv.</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Ticket purchases per season</h3><div class="chart" id="c-tseason"></div></div>
+    <div class="card"><h3>Venue series (location)</h3><div class="chart" id="c-tloc"></div></div>
+    <div class="card"><h3>Price level (raw values)</h3><div class="chart" id="c-tprice"></div></div>
+    <div class="card"><h3>Purchases per account</h3><div class="chart" id="c-tper"></div></div>
+    <div class="card"><h3>Seats per purchase</h3><div class="chart" id="c-tseats"></div></div>
+    <div class="card"><h3>Marketing source (non-missing)</h3><p class="cap">Only 21% of rows report a source.</p><div class="chart tall" id="c-tmkt"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-tix"></div></details>
+</section>
+
+<section id="concerts">
+  <div class="head"><h2>concerts.csv &amp; concerts_2014-15.csv</h2><span class="tag">programme metadata</span></div>
+  <ul class="facts">
+    <li><code>concerts.csv</code>: <b>103 performances</b> of <b>27 programmes</b> over 4 seasons (2010-11 to 2013-14). Each programme (<code>set</code>) repeats at several venues.</li>
+    <li><code>concerts_2014-15.csv</code>: the <b>6 planned sets</b> for the target season. No location column.</li>
+    <li>Free text (<code>who</code>, <code>what</code>) holds conductor, soloists and repertoire. Line breaks are <code>\r</code>; the 2014-15 file has mojibake quotes and accents (e.g. <code>ÒVa tacitoÓ</code>).</li>
+    <li>No account IDs here. Join to tickets_all.csv on <code>season</code> + <code>set</code> (+ <code>location</code>).</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Performances per season, by venue</h3><div class="chart" id="c-cloc"></div></div>
+    <div class="card"><h3>Most-programmed composers, 2010-14</h3><p class="cap">Programmes featuring each surname (parsed from <code>what</code>; the Bach family is merged).</p><div class="chart" id="c-comp"></div></div>
+  </div>
+  <details open><summary>Planned 2014-15 season</summary><div class="tbl" id="t-c1415"></div></details>
+  <details><summary>All 27 past programmes</summary><div class="tbl" id="t-cpast"></div></details>
+</section>
+
+<section id="zip">
+  <div class="head"><h2>zipcodes.csv</h2><span class="tag">1 row per US zip code</span></div>
+  <ul class="facts">
+    <li><b>42,522 US zip codes</b> with City, State, Lat/Long, type, plus IRS-style <code>TaxReturnsFiled</code>, <code>EstimatedPopulation</code>, <code>TotalWages</code> (32% missing).</li>
+    <li><code>Zipcode</code> is an integer, so leading zeros are lost. Pad to 5 digits before joining.</li>
+    <li>Account billing zips are sometimes ZIP+4 (<code>94501-3315</code>). Take the first 5 characters. <b id="zipmatch"></b> of present billing zips then match.</li>
+    <li>Possible derived features: distance to each venue, local income (<code>TotalWages / TaxReturnsFiled</code>), population density.</li>
+  </ul>
+  <div class="grid">
+    <div class="card wide"><h3>Train patrons by billing zip (Bay Area)</h3><p class="cap">Dot size = number of train accounts; colour = subscription rate in that zip. Hover a dot.</p><div class="chart tall" id="c-geo"></div></div>
+    <div class="card"><h3>Patron state (billing zip)</h3><div class="chart" id="c-state"></div></div>
+    <div class="card"><h3>Zip code types in file</h3><div class="chart" id="c-ztype"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-zip"></div></details>
+</section>
+
+<section id="quality">
+  <h2>Data quality notes &amp; gotchas</h2>
+  <div class="callout warn"><b>Timing.</b> <code>first.donated</code> runs to 2014-09-11 and <code>amount.donated.lifetime</code> may include 2014 gifts, i.e. around the time 2014-15 subscriptions were bought. Decide whether that is acceptable "known before the season" information. On the leaderboard it would apply to test accounts equally.</div>
+  <ul class="facts">
+    <li><b>Encoding:</b> <code>account.csv</code> is not valid UTF-8; use <code>latin-1</code>. <code>concerts_2014-15.csv</code> reads as UTF-8 but contains Mac-Roman mojibake (Ò Ó Õ). <code>concerts.csv</code> has a UTF-8 BOM.</li>
+    <li><b>Zip codes:</b> mixed 5-digit, ZIP+4, and 4-digit (leading zero dropped) formats. 15% of accounts lack a billing zip, and none of the 980 train accounts without one subscribed.</li>
+    <li><b>Mixed types:</b> <code>tickets_all.price.level</code> mixes numbers and labels. <code>subscription_tier</code> takes fractional values (0.5, 1.5…), which look like seat-weighted package size.</li>
+    <li><b>Missing:</b> <code>subscriptions.section</code> 16%, <code>price.level</code> 12%. <code>account.shipping.*</code> 99%. <code>relationship</code> 97%.</li>
+    <li><b>Account universe:</b> account.csv also holds ~9,900 accounts in neither train nor test. They are usable for unsupervised or aggregate features but have no labels.</li>
+    <li><b>Submission format:</b> columns <code>ID,Predicted</code>, 2,975 rows, probabilities (not 0/1).</li>
+  </ul>
+</section>
+</main>
+
+<script>
+const D = {"inventory": [{"file": "train.csv", "rows": 6941, "cols": 2, "size_kb": 122}, {"file": "test.csv", "rows": 2975, "cols": 1, "size_kb": 49}, {"file": "sample_submission.csv", "rows": 2975, "cols": 2, "size_kb": 61}, {"file": "account.csv", "rows": 19833, "cols": 10, "size_kb": 1199}, {"file": "subscriptions.csv", "rows": 28627, "cols": 9, "size_kb": 1843}, {"file": "tickets_all.csv", "rows": 2808, "cols": 8, "size_kb": 154}, {"file": "concerts.csv", "rows": 103, "cols": 6, "size_kb": 41}, {"file": "concerts_2014-15.csv", "rows": 6, "cols": 5, "size_kb": 2}, {"file": "zipcodes.csv", "rows": 42522, "cols": 12, "size_kb": 3580}], "kpi": {"train": 6941, "test": 2975, "pos": 332, "rate": 4.8, "accounts": 19833}, "coverage": [{"file": "account.csv", "train": 100.0, "test": 100.0}, {"file": "subscriptions.csv", "train": 31.8, "test": 31.7}, {"file": "tickets_all.csv", "train": 10.5, "test": 9.8}], "account_profile": [{"col": "account.id", "dtype": "str", "null": 0.0, "nuniq": 19833, "example": "001i000000LhSrQ"}, {"col": "shipping.zip.code", "dtype": "str", "null": 98.7, "nuniq": 157, "example": "94102"}, {"col": "billing.zip.code", "dtype": "str", "null": 14.9, "nuniq": 2224, "example": "94102"}, {"col": "shipping.city", "dtype": "str", "null": 98.6, "nuniq": 109, "example": "San Francisco"}, {"col": "billing.city", "dtype": "str", "null": 11.2, "nuniq": 1272, "example": "San Francisco"}, {"col": "relationship", "dtype": "str", "null": 96.7, "nuniq": 10, "example": "Other"}, {"col": "amount.donated.2013", "dtype": "float64", "null": 0.0, "nuniq": 159, "example": "0.0"}, {"col": "amount.donated.lifetime", "dtype": "float64", "null": 0.0, "nuniq": 1733, "example": "0.0"}, {"col": "no.donations.lifetime", "dtype": "int64", "null": 0.0, "nuniq": 57, "example": "0"}, {"col": "first.donated", "dtype": "str", "null": 72.1, "nuniq": 1406, "example": "1987-07-04 00:00:00"}], "account_nulls": {"x": ["account.id", "shipping.zip.code", "billing.zip.code", "shipping.city", "billing.city", "relationship", "amount.donated.2013", "amount.donated.lifetime", "no.donations.lifetime", "first.donated"], "y": [0.0, 98.7, 14.9, 98.6, 11.2, 96.7, 0.0, 0.0, 0.0, 72.1]}, "don_hist": {"x": ["$0", "$1\u201399", "$100\u2013499", "$500\u2013999", "$1k\u20135k", "$5k\u201325k", "$25k+"], "y": [14304, 1710, 1802, 579, 927, 359, 152]}, "ndon_hist": {"x": ["0", "1", "2", "3\u20135", "6\u201310", "11\u201320", "21+"], "y": [14298, 2069, 766, 1051, 702, 594, 353]}, "first_don_year": {"x": [1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014], "y": [205, 186, 170, 333, 170, 169, 106, 130, 19, 315, 384, 260, 293, 420, 324, 270, 318, 231, 115, 121, 134, 137, 89, 108, 46, 63, 79, 105, 109, 126]}, "relationship": {"x": ["Education Participant", "Vendor - Artistic", "Vendor - General", "Vendor - Marketing", "Peer Organization", "Other", "Corporation", "Vendor - Artistic; Peer Organization", "Vendor - Marketing; Other", "Foundation"], "y": [422, 189, 13, 12, 10, 9, 3, 1, 1, 1]}, "cities": {"x": ["San Francisco", "Berkeley", "Oakland", "Palo Alto", "Walnut Creek", "San Jose", "San Rafael", "Menlo Park", "Lafayette", "Mill Valley", "El Cerrito", "Orinda", "Los Altos", "Mountain View", "San Mateo"], "y": [3464, 1802, 1175, 741, 523, 328, 262, 259, 253, 213, 213, 211, 173, 173, 159]}, "subs_profile": [{"col": "account.id", "dtype": "str", "null": 0.0, "nuniq": 6267, "example": "001i000000LhyR3"}, {"col": "season", "dtype": "str", "null": 0.0, "nuniq": 21, "example": "2009-2010"}, {"col": "package", "dtype": "str", "null": 0.0, "nuniq": 10, "example": "Quartet"}, {"col": "no.seats", "dtype": "int64", "null": 0.0, "nuniq": 15, "example": "2"}, {"col": "location", "dtype": "str", "null": 0.0, "nuniq": 8, "example": "San Francisco"}, {"col": "section", "dtype": "str", "null": 15.9, "nuniq": 14, "example": "Premium Orchestra"}, {"col": "price.level", "dtype": "float64", "null": 12.3, "nuniq": 5, "example": "1.0"}, {"col": "subscription_tier", "dtype": "float64", "null": 0.0, "nuniq": 20, "example": "1.0"}, {"col": "multiple.subs", "dtype": "str", "null": 0.0, "nuniq": 2, "example": "no"}], "subs_nulls": {"x": ["account.id", "season", "package", "no.seats", "location", "section", "price.level", "subscription_tier", "multiple.subs"], "y": [0.0, 0.0, 0.0, 0.0, 0.0, 15.9, 12.3, 0.0, 0.0]}, "subs_season": {"x": ["1993-1994", "1994-1995", "1995-1996", "1996-1997", "1997-1998", "1998-1999", "1999-2000", "2000-2001", "2001-2002", "2002-2003", "2003-2004", "2004-2005", "2005-2006", "2006-2007", "2007-2008", "2008-2009", "2009-2010", "2010-2011", "2011-2012", "2012-2013", "2013-2014"], "y": [1624, 1842, 1774, 1871, 1788, 1943, 1607, 1704, 1457, 1199, 1217, 1094, 1090, 1107, 1074, 1042, 1065, 1075, 1014, 1058, 982]}, "subs_season_acct": [1624, 1842, 1774, 1871, 1788, 1943, 1607, 1704, 1457, 1199, 1217, 1094, 1090, 1107, 1074, 1042, 1065, 1075, 1014, 1058, 982], "subs_package": {"x": ["Full", "Quartet", "Quartet CC", "Trio", "Trio B", "Trio A", "Quartet B", "Quartet A", "CYO", "Full upgrade", "(missing)"], "y": [21004, 3740, 1385, 1288, 431, 364, 174, 157, 66, 12, 6]}, "subs_location": {"x": ["San Francisco", "Berkeley Sunday", "Berkeley Saturday", "Peninsula", "Contra Costa", "Santa Rosa", "Orange County", "Los Angeles", "(missing)"], "y": [6680, 6045, 5670, 5488, 3044, 1107, 581, 6, 6]}, "subs_section": {"x": ["Orchestra", "(missing)", "Balcony Front", "Premium Orchestra", "Balcony", "Dress Circle", "Balcony Rear", "Orchestra Front", "Box", "Orchestra Rear", "Santa Rosa", "Gallery", "Boxes House Right", "Boxes House Left", "Floor"], "y": [13247, 4543, 2710, 2487, 1993, 1225, 1004, 645, 435, 160, 106, 47, 13, 11, 1]}, "subs_price": {"x": ["0", "1", "2", "3", "4", "(missing)"], "y": [1208, 4859, 11722, 3827, 3477, 3534]}, "subs_seats": {"x": ["1", "2", "3", "4", "5", "6+"], "y": [9532, 17809, 613, 597, 41, 35]}, "subs_tier": {"x": ["2.0", "1.0", "0.5", "4.0", "3.0", "1.5", "5.0", "2.5", "6.0", "12.0"], "y": [13333, 11331, 2776, 493, 484, 141, 34, 9, 7, 3]}, "subs_mix": {"x": ["1993-1994", "1994-1995", "1995-1996", "1996-1997", "1997-1998", "1998-1999", "1999-2000", "2000-2001", "2001-2002", "2002-2003", "2003-2004", "2004-2005", "2005-2006", "2006-2007", "2007-2008", "2008-2009", "2009-2010", "2010-2011", "2011-2012", "2012-2013", "2013-2014"], "series": {"Full": [1384, 1640, 1504, 1562, 1460, 1616, 1442, 1174, 1031, 834, 787, 735, 708, 690, 694, 676, 635, 616, 591, 639, 586], "Quartet": [240, 176, 270, 309, 328, 327, 163, 210, 141, 126, 125, 111, 154, 204, 197, 180, 230, 0, 249, 0, 0], "Quartet CC": [0, 0, 0, 0, 0, 0, 0, 216, 216, 172, 148, 98, 95, 96, 94, 73, 75, 102, 0, 0, 0], "Trio": [0, 0, 0, 0, 0, 0, 2, 104, 69, 67, 157, 150, 133, 109, 88, 112, 123, 0, 174, 0, 0], "Trio A": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 197], "Trio B": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 252, 179], "Other": [0, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 1, 1, 2, 357, 0, 0, 20]}}, "tix_profile": [{"col": "account.id", "dtype": "str", "null": 0.0, "nuniq": 2049, "example": "001i000000NuOP0"}, {"col": "price.level", "dtype": "str", "null": 7.4, "nuniq": 9, "example": "4"}, {"col": "no.seats", "dtype": "int64", "null": 0.0, "nuniq": 16, "example": "2"}, {"col": "marketing.source", "dtype": "str", "null": 79.2, "nuniq": 17, "example": "Other"}, {"col": "season", "dtype": "str", "null": 0.0, "nuniq": 4, "example": "2012-2013"}, {"col": "location", "dtype": "str", "null": 1.6, "nuniq": 6, "example": "San Francisco"}, {"col": "set", "dtype": "float64", "null": 0.8, "nuniq": 8, "example": "4.0"}, {"col": "multiple.tickets", "dtype": "str", "null": 0.0, "nuniq": 2, "example": "no"}], "tix_nulls": {"x": ["account.id", "price.level", "no.seats", "marketing.source", "season", "location", "set", "multiple.tickets"], "y": [0.0, 7.4, 0.0, 79.2, 0.0, 1.6, 0.8, 0.0]}, "tix_season": {"x": ["2010-2011", "2011-2012", "2012-2013", "2013-2014"], "y": [290, 782, 1001, 735]}, "tix_location": {"x": ["San Francisco", "Berkeley Saturday", "Berkeley Sunday", "Peninsula", "Family concert", "(missing)", "Contra Costa"], "y": [950, 771, 591, 388, 63, 44, 1]}, "tix_price": {"x": ["0", "1", "2", "3", "4", "4.0", "Adult", "GA", "Youth", "(missing)"], "y": [35, 435, 489, 563, 1042, 2, 14, 6, 14, 208]}, "tix_marketing": {"x": ["Philharmonia website", "Other", "Postcard or brochure", "Word of mouth", "KDFC Radio", "City Box Office special offer email", "Other print", "San Francisco Chronicle", "News story or review", "Web search", "City Box Office newsletter", "Browsing City Box Office website", "Blog post", "San Francisco Classical Voice", "Other radio", "New York Times", "Facebook or Twitter"], "y": [158, 96, 95, 85, 39, 14, 13, 13, 12, 11, 9, 9, 9, 8, 6, 4, 3]}, "tix_seats": {"x": ["1", "2", "3", "4", "5", "6+"], "y": [900, 1535, 149, 141, 7, 76]}, "tix_per_acct": {"x": ["1", "2", "3", "4", "5+"], "y": [1597, 298, 74, 43, 37]}, "conc_season_loc": {"x": ["2010-2011", "2011-2012", "2012-2013", "2013-2014"], "series": {"(missing)": [0, 3, 0, 0], "Berkeley Saturday": [8, 6, 6, 6], "Berkeley Sunday": [7, 6, 6, 6], "Contra Costa": [1, 0, 0, 0], "Family concert": [0, 1, 1, 0], "Peninsula": [8, 6, 4, 2], "San Francisco": [8, 6, 6, 6]}}, "composers_hist": {"x": ["Handel", "Bach", "Vivaldi", "Haydn", "Mozart", "Pergolesi", "Corelli", "Telemann", "Durante", "Mendelssohn", "Rameau", "Levin"], "y": [7, 6, 6, 4, 3, 3, 3, 3, 2, 2, 2, 1]}, "c1415": [{"set": 1, "concert.name": "Steven Isserlis, Boccherini, and Haydn", "who": "Nicholas McGegan, conductor, Steven Isserlis, violoncello", "composers": "Bach, Boccherini, Haydn"}, {"set": 2, "concert.name": "Andreas Scholl, J.S. Bach, and Handel", "who": "Julian Wachner, conductor, Andreas Scholl, countertenor", "composers": "Bach, Handel, Telemann"}, {"set": 3, "concert.name": "Vivaldi and Zelenka: A Joyous Christmas", "who": "Nicholas McGegan, conductor, Dominique Labelle, soprano, Christopher Ainslie, alto, Thomas Cooley, tenor, Dashon Burton, bass-baritone, The Philharmonia Chorale \u00d0 Bruce Lamott, director", "composers": "Ester, Haydn, Vejvanovsky, Vivaldi, Zelenka"}, {"set": 4, "concert.name": "The Cousins Bach", "who": "Nicholas McGegan, conductor Sherezade Panthaki, soprano Clifton Massey, countertenor Brian Thorsett, tenor Jeffrey Fields, baritone The Philharmonia Chorale \u00d0 Bruce Lamott, director", "composers": "Bach"}, {"set": 5, "concert.name": "Rachel Podger and Vivaldi", "who": "Rachel Podger, violin and leader", "composers": "Vivaldi"}, {"set": 6, "concert.name": "Rossini\u00d5s The Marriage Contract", "who": "Nicholas McGegan, conductor Soloists from San Francisco Opera Center\u00d5s Adler Fellowship Program Ted Huffman, director", "composers": "Rossini"}], "concerts_unique": [{"season": "2010-2011", "set": 1, "concert.name": "Robert Levin Plays Mozart"}, {"season": "2010-2011", "set": 2, "concert.name": "Bach's Wedding Cantata"}, {"season": "2010-2011", "set": 3, "concert.name": "Vivaldi's Four Seasons"}, {"season": "2010-2011", "set": 4, "concert.name": "Handel's Messiah"}, {"season": "2010-2011", "set": 5, "concert.name": "David Daniels"}, {"season": "2010-2011", "set": 6, "concert.name": "Hummel's Concerto for Keyed Trumpet"}, {"season": "2010-2011", "set": 7, "concert.name": "Zheng Cao: The Life of a Singer"}, {"season": "2010-2011", "set": 8, "concert.name": "Haydn's Creation"}, {"season": "2012-2013", "set": 1, "concert.name": "Sound the Trumpet"}, {"season": "2011-2012", "set": 2, "concert.name": "Arias for Farinelli"}, {"season": "2011-2012", "set": 3, "concert.name": "Marion Verbruggen & the Italian Baroque Recorder"}, {"season": "2011-2012", "set": 4, "concert.name": "Bach's Mass in B Minor"}, {"season": "2011-2012", "set": 5, "concert.name": "Richard Egarr: Masters of the English Baroque"}, {"season": "2011-2012", "set": 6, "concert.name": "Schumann's Cello Concerto"}, {"season": "2011-2012", "set": 7, "concert.name": "Alexander's Feast"}, {"season": "2011-2012", "set": 1, "concert.name": "Mozart and Haydn"}, {"season": "2012-2013", "set": 2, "concert.name": "Beethoven's Fourths"}, {"season": "2012-2013", "set": 3, "concert.name": "A Bach Christmas"}, {"season": "2012-2013", "set": 4, "concert.name": "Quintessence of Classical Style"}, {"season": "2012-2013", "set": 5, "concert.name": "The Italian Violin"}, {"season": "2012-2013", "set": 6, "concert.name": "Heroic Theseus"}, {"season": "2013-2014", "set": 1, "concert.name": "Pergolesi in Naples"}, {"season": "2013-2014", "set": 2, "concert.name": "Music from Imperial Saint Petersburg"}, {"season": "2013-2014", "set": 3, "concert.name": "Solomon in London"}, {"season": "2013-2014", "set": 4, "concert.name": "CPE Bach and Haydn: Berlin and Vienna"}, {"season": "2013-2014", "set": 5, "concert.name": "Music from the Heart of Europe"}, {"season": "2013-2014", "set": 6, "concert.name": "Vivaldi's Venice"}], "zip_profile": [{"col": "Zipcode", "dtype": "int64", "null": 0.0, "nuniq": 42522, "example": "705"}, {"col": "ZipCodeType", "dtype": "str", "null": 0.0, "nuniq": 4, "example": "STANDARD"}, {"col": "City", "dtype": "str", "null": 0.0, "nuniq": 18758, "example": "AIBONITO"}, {"col": "State", "dtype": "str", "null": 0.0, "nuniq": 62, "example": "PR"}, {"col": "LocationType", "dtype": "str", "null": 0.0, "nuniq": 1, "example": "PRIMARY"}, {"col": "Lat", "dtype": "float64", "null": 1.5, "nuniq": 2636, "example": "18.14"}, {"col": "Long", "dtype": "float64", "null": 1.5, "nuniq": 5722, "example": "-66.26"}, {"col": "Location", "dtype": "str", "null": 0.0, "nuniq": 30126, "example": "NA-US-PR-AIBONITO"}, {"col": "Decommisioned", "dtype": "bool", "null": 0.0, "nuniq": 2, "example": "False"}, {"col": "TaxReturnsFiled", "dtype": "float64", "null": 32.1, "nuniq": 10921, "example": "13245.0"}, {"col": "EstimatedPopulation", "dtype": "float64", "null": 32.1, "nuniq": 13654, "example": "24083.0"}, {"col": "TotalWages", "dtype": "float64", "null": 32.2, "nuniq": 28841, "example": "1089095041.0"}], "zip_match": 99.6, "zip_type": {"x": ["STANDARD", "PO BOX", "UNIQUE", "MILITARY"], "y": [29971, 9465, 2437, 649]}, "zip_states": {"x": ["CA", "NY", "WA", "OR", "(missing)", "MA", "IL", "AZ"], "y": [15536, 130, 127, 80, 74, 60, 58, 55]}, "signals": [{"signal": "Subscribed in 2013-14", "yes": 81.7, "no": 0.8, "n_yes": 345, "n_no": 6596}, {"signal": "Donated in 2013", "yes": 66.4, "no": 2.4, "n_yes": 259, "n_no": 6682}, {"signal": "Ever donated", "yes": 14.1, "no": 1.2, "n_yes": 1934, "n_no": 5007}, {"signal": "Ever subscribed", "yes": 13.6, "no": 0.7, "n_yes": 2205, "n_no": 4736}, {"signal": "Bought single tickets (2010-14)", "yes": 7.6, "no": 4.5, "n_yes": 727, "n_no": 6214}, {"signal": "Has billing zip", "yes": 5.6, "no": 0.0, "n_yes": 5961, "n_no": 980}, {"signal": "Has a 'relationship' tag", "yes": 0.0, "no": 4.9, "n_yes": 225, "n_no": 6716}], "rate_nseasons": {"x": ["0", "1", "2\u20133", "4\u20136", "7\u201310", "11\u201315", "16\u201321"], "rate": [0.7, 3.0, 7.0, 10.8, 16.0, 35.3, 77.3], "n": [4736, 897, 531, 305, 194, 102, 176]}, "rate_last": {"x": ["never", "\u22642008-09", "2009-2010", "2010-2011", "2011-2012", "2012-2013", "2013-2014"], "rate": [0.7, 0.0, 0.0, 5.4, 7.7, 13.3, 81.7], "n": [4736, 1620, 49, 56, 52, 83, 345]}, "rate_don": {"x": ["$0", "$1\u201399", "$100\u2013499", "$500\u2013999", "$1k\u20135k", "$5k\u201325k", "$25k+"], "rate": [1.2, 3.6, 10.4, 11.8, 28.2, 39.0, 42.3], "n": [5007, 604, 634, 195, 326, 123, 52]}, "rate_city": {"x": ["Other / missing", "San Francisco", "Berkeley", "Oakland", "Palo Alto", "Walnut Creek", "San Jose", "San Rafael", "Lafayette", "Menlo Park", "Mill Valley"], "rate": [3.0, 5.1, 8.9, 10.4, 8.9, 5.1, 4.4, 1.8, 6.1, 7.4, 10.0], "n": [3737, 1246, 632, 415, 248, 177, 114, 109, 99, 94, 70]}, "geo": {"lat": [36.61, 36.55, 36.67, 36.6, 36.61, 36.58, 37.5, 37.68, 37.56, 37.57, 37.68, 37.67, 37.5, 37.44, 37.28, 37.36, 37.34, 37.45, 37.47, 37.44, 37.37, 37.59, 37.41, 37.54, 37.51, 37.38, 37.38, 37.4, 37.41, 37.6, 37.46, 37.4, 37.49, 37.53, 37.62, 37.49, 37.65, 37.64, 37.38, 37.36, 37.35, 37.42, 37.77, 37.77, 37.77, 37.79, 37.78, 37.76, 37.79, 37.79, 37.74, 37.79, 37.72, 37.75, 37.78, 37.74, 37.76, 37.78, 37.77, 37.76, 37.8, 37.73, 37.79, 37.73, 37.61, 37.79, 37.81, 37.74, 37.72, 37.8, 37.72, 37.78, 37.76, 37.75, 37.8, 37.76, 37.78, 37.44, 37.44, 37.45, 37.37, 37.41, 37.41, 37.57, 37.52, 37.54, 37.55, 37.77, 37.73, 37.78, 37.84, 38.57, 37.99, 38.11, 37.87, 37.85, 38.62, 37.88, 37.95, 37.99, 38.0, 37.97, 38.01, 37.95, 38.04, 37.81, 37.83, 37.91, 37.96, 38.28, 38.23, 37.56, 37.5, 37.51, 37.67, 37.65, 37.63, 37.62, 37.7, 38.01, 37.9, 37.68, 37.77, 37.69, 37.98, 37.55, 37.83, 37.62, 38.55, 38.23, 37.51, 37.99, 37.89, 37.99, 38.0, 37.65, 37.71, 38.03, 38.11, 38.18, 38.03, 38.55, 38.55, 37.71, 37.7, 37.68, 37.68, 37.76, 37.78, 38.16, 37.59, 37.67, 38.13, 38.09, 38.11, 38.11, 37.86, 37.89, 37.91, 37.91, 38.41, 37.77, 37.8, 37.73, 37.8, 37.75, 37.78, 37.81, 37.83, 37.83, 37.81, 37.83, 37.8, 37.78, 37.84, 37.78, 37.77, 37.74, 37.84, 37.86, 37.86, 37.86, 37.86, 37.86, 37.88, 37.9, 37.9, 37.87, 37.87, 37.86, 37.86, 37.96, 37.95, 37.92, 37.94, 37.98, 37.92, 37.97, 37.97, 38.02, 37.94, 37.97, 38.02, 37.95, 37.89, 38.35, 37.94, 37.92, 38.34, 37.98, 38.31, 38.01, 38.11, 37.93, 37.89, 37.9, 38.13, 38.07, 38.1, 38.06, 38.31, 38.21, 38.23, 38.07, 37.96, 37.99, 37.84, 37.86, 37.91, 38.0, 37.92, 37.97, 37.44, 37.0, 37.1, 37.16, 37.28, 37.3, 37.08, 37.22, 37.12, 37.23, 37.13, 37.44, 37.17, 37.34, 37.35, 37.39, 37.04, 36.97, 37.06, 37.25, 37.25, 37.02, 36.95, 37.34, 37.33, 37.35, 37.31, 37.25, 37.22, 37.19, 37.23, 37.25, 37.29, 37.32, 37.37, 37.31, 37.3, 37.28, 37.37, 37.42, 37.25, 37.27, 37.24, 37.21, 37.31, 37.21, 37.39, 37.97, 38.04, 37.95, 38.19, 38.11, 37.69, 37.63, 37.65, 37.73, 38.44, 38.45, 38.43, 38.39, 38.45, 38.78, 38.83, 38.48, 38.74, 38.38, 38.52, 38.63, 38.42, 38.41, 38.4, 38.4, 38.24, 38.53, 39.0, 38.92, 38.9, 38.62, 38.48, 38.53, 38.44, 38.65, 38.93, 38.76, 38.35, 38.41, 38.71, 38.78, 38.34, 38.81, 38.57, 38.58, 38.55, 38.56, 38.62, 38.58, 38.49, 38.69, 38.58], "lon": [-121.62, -121.92, -121.79, -121.88, -121.92, -121.94, -122.3, -122.41, -122.37, -122.34, -122.43, -122.47, -122.47, -122.41, -122.24, -122.14, -122.11, -122.17, -122.18, -122.2, -122.21, -122.4, -122.05, -122.5, -122.5, -122.08, -122.07, -122.08, -122.05, -122.45, -122.24, -122.29, -122.21, -122.24, -122.43, -122.26, -122.42, -122.41, -122.01, -122.02, -122.03, -122.0, -122.41, -122.41, -122.41, -122.4, -122.39, -122.39, -122.4, -122.42, -122.41, -122.39, -122.44, -122.43, -122.43, -122.48, -122.44, -122.46, -122.49, -122.48, -122.43, -122.38, -122.39, -122.45, -122.38, -122.46, -122.36, -122.44, -122.48, -122.41, -122.41, -122.41, -122.45, -122.43, -122.43, -122.39, -122.4, -122.15, -122.15, -122.1, -122.18, -122.17, -122.13, -122.32, -122.35, -122.3, -122.26, -122.27, -122.24, -121.88, -121.97, -122.44, -121.81, -122.13, -121.68, -121.62, -122.61, -121.84, -122.02, -122.0, -122.03, -121.96, -122.02, -122.07, -122.23, -121.97, -121.95, -122.3, -121.76, -122.0, -122.12, -121.98, -121.96, -121.89, -122.08, -122.04, -122.04, -122.11, -122.08, -122.25, -122.11, -121.75, -121.75, -122.01, -122.15, -122.07, -122.1, -122.1, -122.15, -122.29, -122.04, -121.68, -122.19, -122.27, -121.83, -121.85, -121.91, -122.19, -122.13, -121.73, -122.23, -122.39, -122.47, -122.16, -122.12, -122.15, -122.13, -121.93, -121.99, -121.93, -122.06, -121.93, -122.25, -122.25, -122.2, -122.29, -122.07, -122.03, -122.07, -122.01, -122.36, -122.21, -122.21, -122.17, -122.26, -122.13, -122.24, -122.3, -122.29, -122.26, -122.24, -122.22, -122.27, -122.18, -122.23, -122.12, -122.21, -122.19, -122.29, -122.27, -122.28, -122.27, -122.25, -122.24, -122.29, -122.28, -122.26, -122.26, -122.3, -122.26, -122.25, -122.38, -122.26, -122.34, -122.31, -122.33, -122.35, -122.29, -122.5, -122.54, -122.56, -122.5, -122.54, -122.5, -122.47, -123.06, -122.73, -122.51, -122.7, -122.6, -122.7, -122.69, -122.92, -122.53, -122.56, -122.52, -122.56, -122.68, -122.63, -122.54, -122.64, -122.76, -122.56, -122.86, -122.55, -122.58, -122.53, -122.49, -122.66, -122.64, -122.52, -122.56, -121.99, -121.87, -122.08, -122.15, -121.95, -122.09, -122.05, -121.99, -121.93, -121.95, -121.94, -121.87, -121.65, -121.95, -121.98, -121.96, -122.1, -121.98, -122.01, -122.06, -122.03, -121.94, -121.72, -121.88, -121.89, -121.85, -121.96, -121.88, -121.78, -121.83, -121.82, -121.92, -121.88, -121.91, -121.75, -121.93, -122.0, -121.98, -121.86, -121.94, -121.67, -121.84, -121.73, -121.75, -121.93, -121.86, -121.92, -121.32, -121.35, -121.43, -121.25, -121.16, -121.39, -121.01, -121.13, -121.42, -122.78, -122.68, -122.67, -122.75, -122.59, -122.92, -122.71, -122.9, -123.13, -122.52, -123.01, -122.89, -122.54, -123.01, -122.86, -122.82, -122.46, -122.81, -121.09, -121.07, -121.06, -121.32, -121.64, -121.66, -121.3, -121.25, -121.25, -121.28, -121.93, -122.01, -121.85, -121.37, -121.42, -121.28, -121.56, -121.49, -121.49, -121.43, -121.38, -121.4, -121.53, -121.56, -121.37], "n": [1, 2, 1, 4, 1, 1, 15, 5, 26, 4, 3, 9, 2, 9, 1, 50, 23, 92, 4, 20, 22, 12, 2, 1, 5, 22, 14, 1, 20, 13, 20, 31, 9, 8, 12, 33, 7, 1, 2, 12, 22, 3, 1, 39, 28, 9, 11, 41, 25, 117, 89, 17, 26, 122, 87, 31, 110, 83, 55, 50, 69, 6, 2, 44, 1, 2, 1, 76, 16, 42, 6, 1, 2, 1, 2, 4, 1, 86, 1, 47, 28, 37, 75, 8, 26, 19, 17, 35, 11, 15, 20, 1, 6, 21, 2, 2, 4, 9, 10, 6, 6, 19, 1, 35, 7, 27, 1, 71, 1, 3, 1, 8, 4, 11, 5, 2, 4, 2, 16, 4, 98, 20, 5, 6, 20, 1, 37, 1, 10, 3, 7, 3, 74, 8, 3, 14, 15, 1, 1, 1, 3, 8, 1, 28, 3, 1, 5, 3, 30, 1, 8, 13, 2, 6, 4, 1, 60, 49, 18, 46, 3, 9, 39, 1, 3, 11, 13, 12, 20, 23, 99, 125, 10, 1, 89, 14, 1, 1, 1, 1, 39, 52, 40, 144, 57, 166, 144, 65, 10, 6, 2, 14, 11, 27, 11, 10, 2, 1, 54, 52, 26, 1, 1, 2, 22, 2, 2, 11, 3, 14, 1, 1, 2, 15, 63, 3, 11, 5, 12, 10, 3, 9, 3, 5, 7, 24, 23, 3, 4, 1, 1, 2, 1, 5, 2, 2, 6, 23, 1, 11, 1, 13, 1, 1, 1, 4, 17, 3, 8, 7, 4, 11, 1, 1, 1, 8, 3, 1, 1, 6, 2, 4, 5, 9, 12, 7, 3, 6, 12, 4, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 4, 6, 4, 4, 8, 2, 1, 1, 2, 3, 1, 7, 1, 1, 20, 1, 12, 2, 2, 1, 1, 3, 12, 3, 2, 3, 1, 1, 1, 4, 3, 1, 3, 1, 1, 2, 2, 2, 1, 2, 6, 1, 1], "rate": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 12.0, 0.0, 8.7, 0.0, 15.0, 4.5, 8.3, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 5.0, 0.0, 10.0, 3.2, 22.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.5, 0.0, 0.0, 5.1, 0.0, 0.0, 0.0, 4.9, 4.0, 2.6, 6.7, 11.8, 7.7, 7.4, 2.3, 0.0, 8.2, 7.2, 7.3, 0.0, 7.2, 16.7, 0.0, 4.5, 0.0, 0.0, 0.0, 5.3, 6.2, 7.1, 0.0, 0.0, 0.0, 0.0, 50.0, 0.0, 0.0, 8.1, 0.0, 10.6, 25.0, 13.5, 5.3, 0.0, 7.7, 0.0, 0.0, 8.6, 9.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.3, 0.0, 2.9, 0.0, 3.7, 0.0, 14.1, 0.0, 0.0, 0.0, 12.5, 0.0, 0.0, 0.0, 0.0, 25.0, 0.0, 6.2, 0.0, 6.1, 5.0, 20.0, 0.0, 0.0, 0.0, 8.1, 0.0, 0.0, 33.3, 0.0, 0.0, 6.8, 12.5, 0.0, 7.1, 6.7, 0.0, 0.0, 0.0, 33.3, 0.0, 0.0, 14.3, 0.0, 0.0, 0.0, 0.0, 3.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.7, 2.0, 11.1, 4.3, 0.0, 0.0, 12.8, 0.0, 0.0, 0.0, 7.7, 8.3, 5.0, 4.3, 10.1, 9.6, 0.0, 0.0, 16.9, 7.1, 0.0, 0.0, 0.0, 0.0, 7.7, 5.8, 5.0, 7.6, 5.3, 13.9, 12.5, 4.6, 0.0, 0.0, 0.0, 14.3, 18.2, 11.1, 0.0, 0.0, 0.0, 0.0, 3.7, 0.0, 0.0, 0.0, 0.0, 0.0, 9.1, 0.0, 0.0, 0.0, 0.0, 7.1, 0.0, 0.0, 0.0, 0.0, 11.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 22.2, 0.0, 0.0, 0.0, 8.3, 0.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0, 50.0, 0.0, 0.0, 13.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.0, 0.0, 11.1, 8.3, 14.3, 0.0, 0.0, 8.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 8.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.0, 0.0, 0.0, 33.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "zip": ["93908", "93921", "93933", "93940", "93950", "93953", "94002", "94005", "94010", "94011", "94014", "94015", "94018", "94019", "94020", "94022", "94024", "94025", "94026", "94027", "94028", "94030", "94035", "94037", "94038", "94040", "94041", "94042", "94043", "94044", "94061", "94062", "94063", "94065", "94066", "94070", "94080", "94083", "94085", "94086", "94087", "94089", "94101", "94102", "94103", "94104", "94105", "94107", "94108", "94109", "94110", "94111", "94112", "94114", "94115", "94116", "94117", "94118", "94121", "94122", "94123", "94124", "94126", "94127", "94128", "94129", "94130", "94131", "94132", "94133", "94134", "94142", "94143", "94146", "94147", "94158", "94163", "94301", "94302", "94303", "94304", "94305", "94306", "94401", "94402", "94403", "94404", "94501", "94502", "94506", "94507", "94508", "94509", "94510", "94513", "94514", "94515", "94517", "94518", "94519", "94520", "94521", "94522", "94523", "94525", "94526", "94528", "94530", "94531", "94533", "94534", "94536", "94538", "94539", "94541", "94542", "94544", "94545", "94546", "94547", "94549", "94550", "94551", "94552", "94553", "94555", "94556", "94557", "94558", "94559", "94560", "94561", "94563", "94564", "94565", "94566", "94568", "94569", "94570", "94571", "94572", "94574", "94576", "94577", "94578", "94579", "94580", "94582", "94583", "94585", "94587", "94588", "94589", "94590", "94591", "94592", "94595", "94596", "94597", "94598", "94599", "94601", "94602", "94603", "94604", "94605", "94606", "94607", "94608", "94609", "94610", "94611", "94612", "94613", "94618", "94619", "94620", "94622", "94662", "94701", "94702", "94703", "94704", "94705", "94706", "94707", "94708", "94709", "94710", "94712", "94720", "94801", "94803", "94804", "94805", "94806", "94807", "94820", "94901", "94903", "94904", "94912", "94913", "94915", "94920", "94923", "94924", "94925", "94928", "94930", "94931", "94933", "94937", "94939", "94941", "94942", "94945", "94946", "94947", "94949", "94951", "94952", "94954", "94956", "94957", "94960", "94965", "94966", "94970", "94973", "94976", "94979", "95002", "95003", "95005", "95006", "95008", "95014", "95018", "95030", "95031", "95032", "95033", "95035", "95037", "95050", "95051", "95054", "95060", "95062", "95066", "95070", "95071", "95073", "95076", "95112", "95113", "95116", "95117", "95118", "95119", "95120", "95123", "95124", "95125", "95126", "95127", "95128", "95129", "95130", "95133", "95134", "95135", "95136", "95138", "95139", "95159", "95160", "95164", "95204", "95209", "95213", "95220", "95240", "95304", "95351", "95358", "95376", "95401", "95404", "95405", "95407", "95409", "95425", "95426", "95436", "95441", "95442", "95446", "95448", "95452", "95465", "95472", "95473", "95476", "95492", "95602", "95603", "95604", "95608", "95616", "95618", "95624", "95628", "95648", "95678", "95687", "95688", "95695", "95747", "95758", "95765", "95798", "95814", "95818", "95819", "95821", "95825", "95831", "95835", "95864"]}};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = n => n.toLocaleString();
+const S = () => [1,2,3,4,5,6,7,8].map(i => css('--s'+i));
+
+document.getElementById('kpis').innerHTML = [
+  [fmt(D.kpi.train), 'train accounts (labelled)'],
+  [fmt(D.kpi.test), 'test accounts to predict'],
+  [D.kpi.rate + '%', `positive rate (${D.kpi.pos} subscribers)`],
+  [fmt(D.kpi.accounts), 'accounts in account.csv'],
+  ['AUROC', 'metric · submit probabilities'],
+].map(([v,l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+document.getElementById('baserate').textContent = D.kpi.rate + '%';
+document.getElementById('zipmatch').textContent = D.zip_match + '%';
+document.getElementById('f-train').innerHTML = `
+  <li><b>${fmt(D.kpi.train)}</b> labelled accounts (<code>account.id</code>, <code>label</code>); <b>${D.kpi.pos}</b> positives (${D.kpi.rate}%).</li>
+  <li><b>${fmt(D.kpi.test)}</b> test accounts (<code>ID</code>); no overlap with train. Every ID exists in account.csv.</li>
+  <li>sample_submission.csv: <code>ID,Predicted</code> with 0.5 everywhere. Match this header exactly.</li>
+  <li>Train and test have near-identical coverage in each history file, so they look like a random split.</li>`;
+
+function table(id, rows, cols){
+  const head = cols.map(c => `<th>${c[1]}</th>`).join('');
+  const body = rows.map(r => '<tr>' + cols.map(c => {
+    const v = r[c[0]]; const num = typeof v === 'number';
+    return `<td class="${num?'num':''}">${num ? fmt(v) : String(v ?? '').replace(/</g,'&lt;')}</td>`;
+  }).join('') + '</tr>').join('');
+  document.getElementById(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+const pcols = [['col','Column'],['dtype','Type'],['null','% null'],['nuniq','# unique'],['example','Example']];
+table('t-account', D.account_profile, pcols);
+table('t-subs', D.subs_profile, pcols);
+table('t-tix', D.tix_profile, pcols);
+table('t-zip', D.zip_profile, pcols);
+table('t-c1415', D.c1415, [['set','Set'],['concert.name','Programme'],['who','Performers'],['composers','Composers (parsed)']]);
+table('t-cpast', D.concerts_unique, [['season','Season'],['set','Set'],['concert.name','Programme']]);
+
+function base(extra={}){
+  const t = css('--text-2'), g = css('--grid');
+  const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'', font:{color:t,size:12}}, automargin:true, fixedrange:true});
+  return Object.assign({
+    margin:{l:8,r:12,t:8,b:8}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    font:{family:'-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif', color:t, size:12},
+    xaxis:ax(), yaxis:ax(), bargap:.28, showlegend:false,
+    hoverlabel:{bgcolor:css('--surface'), bordercolor:css('--border'), font:{color:css('--text')}},
+    legend:{orientation:'h', y:1.1, x:0, font:{color:t}},
+  }, extra);
+}
+const cfg = {displayModeBar:false, responsive:true};
+const M = c => ({color:c, line:{color:css('--surface'), width:1}});
+
+function bar(id, d, {h=false, color, ytitle='', hov='%{y:,}', sortDesc=false}={}){
+  let x=[...d.x], y=[...d.y];
+  if (h){ x=[...d.x].reverse(); y=[...d.y].reverse(); }
+  const tr = h ? {type:'bar', orientation:'h', y:x, x:y, hovertemplate:'%{y}: %{x:,}<extra></extra>'}
+               : {type:'bar', x, y, hovertemplate:'%{x}: '+hov+'<extra></extra>'};
+  tr.marker = M(color || S()[0]);
+  const L = base(); if (h) L.yaxis.type='category'; else L.xaxis.type='category';
+  if (ytitle) (h?L.xaxis:L.yaxis).title.text = ytitle;
+  Plotly.react(id, [tr], L, cfg);
+}
+function rate(id, d, {h=false}={}){
+  const custom = d.n;
+  const tr = {type:'bar', marker:M(S()[0]), customdata:custom};
+  if (h){ tr.orientation='h'; tr.y=[...d.x].reverse(); tr.x=[...d.rate].reverse(); tr.customdata=[...custom].reverse();
+          tr.hovertemplate='%{y}<br>%{x:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'; tr.text=tr.x.map(v=>v.toFixed(1)+'%'); }
+  else { tr.x=d.x; tr.y=d.rate; tr.hovertemplate='%{x}<br>%{y:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'; tr.text=d.rate.map(v=>v==null?'':v.toFixed(1)+'%'); }
+  tr.textposition='outside'; tr.cliponaxis=false; tr.textfont={color:css('--text-2'), size:11};
+  const L = base(); const va = h?L.xaxis:L.yaxis; va.title.text='% subscribed'; va.ticksuffix='%';
+  if (h) L.yaxis.type='category'; else L.xaxis.type='category';
+  Plotly.react(id, [tr], L, cfg);
+}
+function stacked(id, d, title){
+  const keys = Object.keys(d.series), c = S();
+  const traces = keys.map((k,i) => ({type:'bar', name:k, x:d.x, y:d.series[k], marker:M(c[i % 8]),
+    hovertemplate:`${k}: %{y:,}<extra>%{x}</extra>`}));
+  const L = base({barmode:'stack', showlegend:true, bargap:.18, hovermode:'x unified', margin:{l:8,r:12,t:56,b:8},
+    legend:{orientation:'h', yanchor:'bottom', y:1.02, x:0, font:{color:css('--text-2')}}});
+  L.yaxis.title.text = title || 'count'; L.xaxis.type='category'; if (d.x.length > 6) L.xaxis.tickangle=-45;
+  Plotly.react(id, traces, L, cfg);
+}
+
+function render(){
+  const c = S();
+  // signals
+  const sg = [...D.signals].reverse();
+  Plotly.react('c-signals', [
+    {type:'bar', orientation:'h', name:'Without trait', y:sg.map(s=>s.signal), x:sg.map(s=>s.no), marker:M(c[1]),
+     customdata:sg.map(s=>s.n_no), text:sg.map(s=>s.no+'%'), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+     hovertemplate:'Without: %{x:.1f}% (n = %{customdata:,})<extra></extra>'},
+    {type:'bar', orientation:'h', name:'With trait', y:sg.map(s=>s.signal), x:sg.map(s=>s.yes), marker:M(c[0]),
+     customdata:sg.map(s=>s.n_yes), text:sg.map(s=>s.yes+'%'), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+     hovertemplate:'With: %{x:.1f}% (n = %{customdata:,})<extra></extra>'},
+  ], Object.assign(base({barmode:'group', showlegend:true, bargap:.25, bargroupgap:.08,
+      legend:{orientation:'h', y:1.08, x:0, traceorder:'reversed', font:{color:css('--text-2')}}}),
+      {xaxis:{...base().xaxis, ticksuffix:'%', title:{text:'% subscribed 2014-15', font:{color:css('--text-2'),size:12}}, range:[0,95]}}), cfg);
+  rate('c-nseas', D.rate_nseasons);
+  rate('c-last', D.rate_last);
+  rate('c-ratedon', D.rate_don);
+  rate('c-ratecity', D.rate_city, {h:true});
+  // train/test
+  bar('c-balance', {x:['0 · no subscription','1 · subscribed'], y:[D.kpi.train-D.kpi.pos, D.kpi.pos]}, {ytitle:'accounts'});
+  Plotly.react('c-cov', ['train','test'].map((k,i)=>({type:'bar', name:k, x:D.coverage.map(r=>r.file), y:D.coverage.map(r=>r[k]),
+    marker:M(c[i]), hovertemplate:`${k}: %{y:.1f}%<extra>%{x}</extra>`})),
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:{...base().yaxis, ticksuffix:'%', range:[0,105]}}), cfg);
+  // account
+  bar('c-don', D.don_hist, {ytitle:'accounts'});
+  bar('c-ndon', D.ndon_hist, {ytitle:'accounts'});
+  bar('c-fdon', D.first_don_year, {ytitle:'accounts'});
+  bar('c-accnull', D.account_nulls, {h:true, color:c[3]});
+  bar('c-city', D.cities, {h:true});
+  bar('c-rel', D.relationship, {h:true});
+  // subs
+  stacked('c-mix', D.subs_mix, 'subscriptions');
+  bar('c-sloc', D.subs_location, {h:true});
+  bar('c-ssec', D.subs_section, {h:true});
+  bar('c-sprice', D.subs_price);
+  bar('c-sseats', D.subs_seats);
+  // tickets
+  bar('c-tseason', D.tix_season, {ytitle:'purchases'});
+  bar('c-tloc', D.tix_location, {h:true});
+  bar('c-tprice', D.tix_price);
+  bar('c-tper', D.tix_per_acct, {ytitle:'accounts'});
+  bar('c-tseats', D.tix_seats);
+  bar('c-tmkt', D.tix_marketing, {h:true});
+  // concerts
+  stacked('c-cloc', D.conc_season_loc, 'performances');
+  bar('c-comp', D.composers_hist, {h:true});
+  // zip
+  const g = D.geo, mx = Math.max(...g.n);
+  Plotly.react('c-geo', [{type:'scatter', mode:'markers', x:g.lon, y:g.lat,
+    marker:{size:g.n.map(n=>6+22*Math.sqrt(n/mx)), color:g.rate, cmin:0, cmax:20,
+      colorscale:[[0,css('--seq-lo')],[1,css('--seq-hi')]], line:{color:css('--surface'),width:1.5}, opacity:.9,
+      colorbar:{title:{text:'% subscribed',font:{color:css('--text-2'),size:11}}, ticksuffix:'%', thickness:10, tickfont:{color:css('--text-2')}, outlinewidth:0}},
+    customdata:g.zip.map((z,i)=>[z,g.n[i],g.rate[i]]),
+    hovertemplate:'zip %{customdata[0]}<br>%{customdata[1]} train accounts<br>%{customdata[2]:.1f}% subscribed<extra></extra>'}],
+    Object.assign(base(), {xaxis:{...base().xaxis, title:{text:'longitude',font:{color:css('--text-2'),size:12}}},
+      yaxis:{...base().yaxis, title:{text:'latitude',font:{color:css('--text-2'),size:12}}, scaleanchor:'x', scaleratio:1.27}}), cfg);
+  bar('c-state', D.zip_states, {h:true});
+  bar('c-ztype', D.zip_type);
+}
+render();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+</script>
+</body>
+</html>

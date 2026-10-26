@@ -1,0 +1,18 @@
+# Raw competition data and course materials (not ours to redistribute)
+for_students/
+*.zip
+*.docx
+*.pptx
+
+# Generated data (rebuild with: python3 src/features.py)
+data/
+
+# AI-written notes: kept local so the graded README stays the author's own writing
+DATA_GUIDE.md
+eda/external/
+
+# Python / OS
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store

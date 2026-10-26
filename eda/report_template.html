@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orchestra Data Summary</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f6f5f2; --surface:#fcfcfb; --border:#e4e2dc;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#ebe9e4;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --seq-lo:#d6e6fa; --seq-hi:#0d4a91; --accent-bg:#eaf2fc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#121211; --surface:#1a1a19; --border:#2e2d2a;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2927;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --seq-lo:#1d3350; --seq-hi:#8fc0ff; --accent-bg:#1a2635;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#121211; --surface:#1a1a19; --border:#2e2d2a;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2927;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --seq-lo:#1d3350; --seq-hi:#8fc0ff; --accent-bg:#1a2635;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:21px;margin:0 0 4px}
+h3{font-size:14px;margin:0 0 2px;font-weight:600}
+.sub{color:var(--text-2);margin:0 0 20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--text-2);font-size:13px}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:24px}
+nav a{color:var(--text-2);text-decoration:none;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+nav a:hover{color:var(--text);border-color:var(--muted)}
+section{margin:0 0 40px;scroll-margin-top:60px}
+.head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tag{font:12px ui-monospace,Menlo,monospace;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1px 7px}
+.facts{margin:8px 0 14px;padding-left:20px;color:var(--text-2)}
+.facts li{margin:2px 0}.facts b{color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 14px 6px;min-width:0}
+.card p.cap{color:var(--muted);font-size:12.5px;margin:0 0 4px}
+.chart{height:280px;width:100%}
+.chart.tall{height:380px}
+.wide{grid-column:1/-1}
+.callout{background:var(--accent-bg);border:1px solid var(--border);border-left:3px solid var(--s1);border-radius:8px;padding:12px 16px;margin:12px 0;color:var(--text)}
+.callout.warn{border-left-color:var(--s4)}
+details{margin-top:12px}
+summary{cursor:pointer;color:var(--text-2);font-size:13px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--text-2);font-weight:600}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+code{font:12.5px ui-monospace,Menlo,monospace}
+@media (max-width:600px){.grid{grid-template-columns:1fr}.chart{height:250px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Orchestra subscription data — summary</h1>
+<p class="sub">Classical Music Meets Classical ML (Fall 2026). Goal: predict, for each account in <code>test.csv</code>, the probability that the patron buys a 2014-15 season subscription. Metric: AUROC. Hover any chart for exact values.</p>
+
+<div class="kpis" id="kpis"></div>
+
+<nav>
+  <a href="#signals">Key signals</a><a href="#trainset">train / test</a><a href="#account">account</a>
+  <a href="#subs">subscriptions</a><a href="#tix">tickets_all</a><a href="#concerts">concerts</a>
+  <a href="#zip">zipcodes</a><a href="#quality">Data quality</a>
+</nav>
+
+<section id="signals">
+  <h2>Key signals at a glance</h2>
+  <p class="sub">Share of training accounts that subscribed in 2014-15 (label = 1), split by simple account traits. Base rate is <b id="baserate"></b>.</p>
+  <div class="grid">
+    <div class="card wide"><h3>Subscription rate: accounts with vs. without each trait</h3><p class="cap">Train set only. Hover for group sizes.</p><div class="chart tall" id="c-signals"></div></div>
+    <div class="card"><h3>Rate by number of past seasons subscribed</h3><p class="cap">From subscriptions.csv, 1993-94 to 2013-14.</p><div class="chart" id="c-nseas"></div></div>
+    <div class="card"><h3>Rate by most recent season subscribed</h3><p class="cap">Recency dominates: lapsed subscribers rarely return.</p><div class="chart" id="c-last"></div></div>
+    <div class="card"><h3>Rate by lifetime donation amount</h3><p class="cap">From account.csv.</p><div class="chart" id="c-ratedon"></div></div>
+    <div class="card"><h3>Rate by billing city (top 10)</h3><p class="cap">From account.csv.</p><div class="chart" id="c-ratecity"></div></div>
+  </div>
+</section>
+
+<section id="trainset">
+  <div class="head"><h2>train.csv / test.csv / sample_submission.csv</h2><span class="tag">account.id, label</span></div>
+  <ul class="facts" id="f-train"></ul>
+  <div class="grid">
+    <div class="card"><h3>Class balance in train</h3><p class="cap">Heavily imbalanced; AUROC is insensitive to this, but stratify CV folds.</p><div class="chart" id="c-balance"></div></div>
+    <div class="card"><h3>Coverage: % of accounts appearing in each history file</h3><p class="cap">Every account is in account.csv; most never subscribed or bought tickets.</p><div class="chart" id="c-cov"></div></div>
+  </div>
+</section>
+
+<section id="account">
+  <div class="head"><h2>account.csv</h2><span class="tag">1 row per patron</span></div>
+  <ul class="facts">
+    <li><b>19,833 accounts</b>: every train and test account, plus ~10k others.</li>
+    <li>Location (<code>billing.zip.code</code>, <code>billing.city</code>, rarely <code>shipping.*</code>) and donation history (<code>amount.donated.2013</code>, <code>amount.donated.lifetime</code>, <code>no.donations.lifetime</code>, <code>first.donated</code>).</li>
+    <li>Only <b>28% have ever donated</b>; donation amounts are extremely right-skewed (max $2.29M lifetime).</li>
+    <li>File is <b>Latin-1 encoded</b>, not UTF-8. Read with <code>encoding="latin-1"</code>.</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Lifetime donation amount</h3><p class="cap">Accounts per bucket.</p><div class="chart" id="c-don"></div></div>
+    <div class="card"><h3>Number of lifetime donations</h3><p class="cap">Accounts per bucket.</p><div class="chart" id="c-ndon"></div></div>
+    <div class="card"><h3>Year of first donation</h3><p class="cap">Donors only (28%). Runs to Sept 2014.</p><div class="chart" id="c-fdon"></div></div>
+    <div class="card"><h3>Missing values by column</h3><p class="cap">% of rows null.</p><div class="chart" id="c-accnull"></div></div>
+    <div class="card"><h3>Top billing cities</h3><p class="cap">Bay Area patrons dominate.</p><div class="chart" id="c-city"></div></div>
+    <div class="card"><h3>Relationship tag</h3><p class="cap">Only 3.3% of accounts have one.</p><div class="chart" id="c-rel"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-account"></div></details>
+</section>
+
+<section id="subs">
+  <div class="head"><h2>subscriptions.csv</h2><span class="tag">1 row per account × season</span></div>
+  <ul class="facts">
+    <li><b>28,627 rows</b>, <b>6,267 accounts</b>, 21 seasons (1993-94 to 2013-14). No row for 2014-15, which is the target.</li>
+    <li>Columns: <code>package</code> (Full, Quartet, Trio…), <code>no.seats</code>, <code>location</code> (venue series), <code>section</code>, <code>price.level</code>, <code>subscription_tier</code>, <code>multiple.subs</code>.</li>
+    <li>32% of train accounts and 32% of test accounts appear here.</li>
+    <li>Volume has fallen from ~1,900 subscriptions per season in the late 1990s to ~1,000 now.</li>
+  </ul>
+  <div class="grid">
+    <div class="card wide"><h3>Subscriptions per season, by package</h3><p class="cap">Stacked counts. "Other" = Quartet A/B, CYO, Full upgrade, missing.</p><div class="chart tall" id="c-mix"></div></div>
+    <div class="card"><h3>Venue series (location)</h3><div class="chart" id="c-sloc"></div></div>
+    <div class="card"><h3>Section</h3><div class="chart" id="c-ssec"></div></div>
+    <div class="card"><h3>Price level</h3><p class="cap">1 = most expensive (assumed). 12% missing.</p><div class="chart" id="c-sprice"></div></div>
+    <div class="card"><h3>Seats per subscription</h3><div class="chart" id="c-sseats"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-subs"></div></details>
+</section>
+
+<section id="tix">
+  <div class="head"><h2>tickets_all.csv</h2><span class="tag">1 row per single-ticket purchase</span></div>
+  <ul class="facts">
+    <li><b>2,808 rows</b>, <b>2,049 accounts</b>, only 4 seasons (2010-11 to 2013-14).</li>
+    <li>Covers 10% of train and test accounts, so the signal is sparse.</li>
+    <li><code>price.level</code> is mixed type: 0–4 plus "Adult", "Youth", "GA" and a stray "4.0". Clean it before use.</li>
+    <li><code>marketing.source</code> is 79% missing. <code>set</code> links to the concert set number in concerts.csv.</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Ticket purchases per season</h3><div class="chart" id="c-tseason"></div></div>
+    <div class="card"><h3>Venue series (location)</h3><div class="chart" id="c-tloc"></div></div>
+    <div class="card"><h3>Price level (raw values)</h3><div class="chart" id="c-tprice"></div></div>
+    <div class="card"><h3>Purchases per account</h3><div class="chart" id="c-tper"></div></div>
+    <div class="card"><h3>Seats per purchase</h3><div class="chart" id="c-tseats"></div></div>
+    <div class="card"><h3>Marketing source (non-missing)</h3><p class="cap">Only 21% of rows report a source.</p><div class="chart tall" id="c-tmkt"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-tix"></div></details>
+</section>
+
+<section id="concerts">
+  <div class="head"><h2>concerts.csv &amp; concerts_2014-15.csv</h2><span class="tag">programme metadata</span></div>
+  <ul class="facts">
+    <li><code>concerts.csv</code>: <b>103 performances</b> of <b>27 programmes</b> over 4 seasons (2010-11 to 2013-14). Each programme (<code>set</code>) repeats at several venues.</li>
+    <li><code>concerts_2014-15.csv</code>: the <b>6 planned sets</b> for the target season. No location column.</li>
+    <li>Free text (<code>who</code>, <code>what</code>) holds conductor, soloists and repertoire. Line breaks are <code>\r</code>; the 2014-15 file has mojibake quotes and accents (e.g. <code>ÒVa tacitoÓ</code>).</li>
+    <li>No account IDs here. Join to tickets_all.csv on <code>season</code> + <code>set</code> (+ <code>location</code>).</li>
+  </ul>
+  <div class="grid">
+    <div class="card"><h3>Performances per season, by venue</h3><div class="chart" id="c-cloc"></div></div>
+    <div class="card"><h3>Most-programmed composers, 2010-14</h3><p class="cap">Programmes featuring each surname (parsed from <code>what</code>; the Bach family is merged).</p><div class="chart" id="c-comp"></div></div>
+  </div>
+  <details open><summary>Planned 2014-15 season</summary><div class="tbl" id="t-c1415"></div></details>
+  <details><summary>All 27 past programmes</summary><div class="tbl" id="t-cpast"></div></details>
+</section>
+
+<section id="zip">
+  <div class="head"><h2>zipcodes.csv</h2><span class="tag">1 row per US zip code</span></div>
+  <ul class="facts">
+    <li><b>42,522 US zip codes</b> with City, State, Lat/Long, type, plus IRS-style <code>TaxReturnsFiled</code>, <code>EstimatedPopulation</code>, <code>TotalWages</code> (32% missing).</li>
+    <li><code>Zipcode</code> is an integer, so leading zeros are lost. Pad to 5 digits before joining.</li>
+    <li>Account billing zips are sometimes ZIP+4 (<code>94501-3315</code>). Take the first 5 characters. <b id="zipmatch"></b> of present billing zips then match.</li>
+    <li>Possible derived features: distance to each venue, local income (<code>TotalWages / TaxReturnsFiled</code>), population density.</li>
+  </ul>
+  <div class="grid">
+    <div class="card wide"><h3>Train patrons by billing zip (Bay Area)</h3><p class="cap">Dot size = number of train accounts; colour = subscription rate in that zip. Hover a dot.</p><div class="chart tall" id="c-geo"></div></div>
+    <div class="card"><h3>Patron state (billing zip)</h3><div class="chart" id="c-state"></div></div>
+    <div class="card"><h3>Zip code types in file</h3><div class="chart" id="c-ztype"></div></div>
+  </div>
+  <details><summary>Column profile</summary><div class="tbl" id="t-zip"></div></details>
+</section>
+
+<section id="quality">
+  <h2>Data quality notes &amp; gotchas</h2>
+  <div class="callout warn"><b>Timing.</b> <code>first.donated</code> runs to 2014-09-11 and <code>amount.donated.lifetime</code> may include 2014 gifts, i.e. around the time 2014-15 subscriptions were bought. Decide whether that is acceptable "known before the season" information. On the leaderboard it would apply to test accounts equally.</div>
+  <ul class="facts">
+    <li><b>Encoding:</b> <code>account.csv</code> is not valid UTF-8; use <code>latin-1</code>. <code>concerts_2014-15.csv</code> reads as UTF-8 but contains Mac-Roman mojibake (Ò Ó Õ). <code>concerts.csv</code> has a UTF-8 BOM.</li>
+    <li><b>Zip codes:</b> mixed 5-digit, ZIP+4, and 4-digit (leading zero dropped) formats. 15% of accounts lack a billing zip, and none of the 980 train accounts without one subscribed.</li>
+    <li><b>Mixed types:</b> <code>tickets_all.price.level</code> mixes numbers and labels. <code>subscription_tier</code> takes fractional values (0.5, 1.5…), which look like seat-weighted package size.</li>
+    <li><b>Missing:</b> <code>subscriptions.section</code> 16%, <code>price.level</code> 12%. <code>account.shipping.*</code> 99%. <code>relationship</code> 97%.</li>
+    <li><b>Account universe:</b> account.csv also holds ~9,900 accounts in neither train nor test. They are usable for unsupervised or aggregate features but have no labels.</li>
+    <li><b>Submission format:</b> columns <code>ID,Predicted</code>, 2,975 rows, probabilities (not 0/1).</li>
+  </ul>
+</section>
+</main>
+
+<script>
+const D = /*__DATA__*/null;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = n => n.toLocaleString();
+const S = () => [1,2,3,4,5,6,7,8].map(i => css('--s'+i));
+
+document.getElementById('kpis').innerHTML = [
+  [fmt(D.kpi.train), 'train accounts (labelled)'],
+  [fmt(D.kpi.test), 'test accounts to predict'],
+  [D.kpi.rate + '%', `positive rate (${D.kpi.pos} subscribers)`],
+  [fmt(D.kpi.accounts), 'accounts in account.csv'],
+  ['AUROC', 'metric · submit probabilities'],
+].map(([v,l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+document.getElementById('baserate').textContent = D.kpi.rate + '%';
+document.getElementById('zipmatch').textContent = D.zip_match + '%';
+document.getElementById('f-train').innerHTML = `
+  <li><b>${fmt(D.kpi.train)}</b> labelled accounts (<code>account.id</code>, <code>label</code>); <b>${D.kpi.pos}</b> positives (${D.kpi.rate}%).</li>
+  <li><b>${fmt(D.kpi.test)}</b> test accounts (<code>ID</code>); no overlap with train. Every ID exists in account.csv.</li>
+  <li>sample_submission.csv: <code>ID,Predicted</code> with 0.5 everywhere. Match this header exactly.</li>
+  <li>Train and test have near-identical coverage in each history file, so they look like a random split.</li>`;
+
+function table(id, rows, cols){
+  const head = cols.map(c => `<th>${c[1]}</th>`).join('');
+  const body = rows.map(r => '<tr>' + cols.map(c => {
+    const v = r[c[0]]; const num = typeof v === 'number';
+    return `<td class="${num?'num':''}">${num ? fmt(v) : String(v ?? '').replace(/</g,'&lt;')}</td>`;
+  }).join('') + '</tr>').join('');
+  document.getElementById(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+const pcols = [['col','Column'],['dtype','Type'],['null','% null'],['nuniq','# unique'],['example','Example']];
+table('t-account', D.account_profile, pcols);
+table('t-subs', D.subs_profile, pcols);
+table('t-tix', D.tix_profile, pcols);
+table('t-zip', D.zip_profile, pcols);
+table('t-c1415', D.c1415, [['set','Set'],['concert.name','Programme'],['who','Performers'],['composers','Composers (parsed)']]);
+table('t-cpast', D.concerts_unique, [['season','Season'],['set','Set'],['concert.name','Programme']]);
+
+function base(extra={}){
+  const t = css('--text-2'), g = css('--grid');
+  const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'', font:{color:t,size:12}}, automargin:true, fixedrange:true});
+  return Object.assign({
+    margin:{l:8,r:12,t:8,b:8}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    font:{family:'-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif', color:t, size:12},
+    xaxis:ax(), yaxis:ax(), bargap:.28, showlegend:false,
+    hoverlabel:{bgcolor:css('--surface'), bordercolor:css('--border'), font:{color:css('--text')}},
+    legend:{orientation:'h', y:1.1, x:0, font:{color:t}},
+  }, extra);
+}
+const cfg = {displayModeBar:false, responsive:true};
+const M = c => ({color:c, line:{color:css('--surface'), width:1}});
+
+function bar(id, d, {h=false, color, ytitle='', hov='%{y:,}', sortDesc=false}={}){
+  let x=[...d.x], y=[...d.y];
+  if (h){ x=[...d.x].reverse(); y=[...d.y].reverse(); }
+  const tr = h ? {type:'bar', orientation:'h', y:x, x:y, hovertemplate:'%{y}: %{x:,}<extra></extra>'}
+               : {type:'bar', x, y, hovertemplate:'%{x}: '+hov+'<extra></extra>'};
+  tr.marker = M(color || S()[0]);
+  const L = base(); if (h) L.yaxis.type='category'; else L.xaxis.type='category';
+  if (ytitle) (h?L.xaxis:L.yaxis).title.text = ytitle;
+  Plotly.react(id, [tr], L, cfg);
+}
+function rate(id, d, {h=false}={}){
+  const custom = d.n;
+  const tr = {type:'bar', marker:M(S()[0]), customdata:custom};
+  if (h){ tr.orientation='h'; tr.y=[...d.x].reverse(); tr.x=[...d.rate].reverse(); tr.customdata=[...custom].reverse();
+          tr.hovertemplate='%{y}<br>%{x:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'; tr.text=tr.x.map(v=>v.toFixed(1)+'%'); }
+  else { tr.x=d.x; tr.y=d.rate; tr.hovertemplate='%{x}<br>%{y:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'; tr.text=d.rate.map(v=>v==null?'':v.toFixed(1)+'%'); }
+  tr.textposition='outside'; tr.cliponaxis=false; tr.textfont={color:css('--text-2'), size:11};
+  const L = base(); const va = h?L.xaxis:L.yaxis; va.title.text='% subscribed'; va.ticksuffix='%';
+  if (h) L.yaxis.type='category'; else L.xaxis.type='category';
+  Plotly.react(id, [tr], L, cfg);
+}
+function stacked(id, d, title){
+  const keys = Object.keys(d.series), c = S();
+  const traces = keys.map((k,i) => ({type:'bar', name:k, x:d.x, y:d.series[k], marker:M(c[i % 8]),
+    hovertemplate:`${k}: %{y:,}<extra>%{x}</extra>`}));
+  const L = base({barmode:'stack', showlegend:true, bargap:.18, hovermode:'x unified', margin:{l:8,r:12,t:56,b:8},
+    legend:{orientation:'h', yanchor:'bottom', y:1.02, x:0, font:{color:css('--text-2')}}});
+  L.yaxis.title.text = title || 'count'; L.xaxis.type='category'; if (d.x.length > 6) L.xaxis.tickangle=-45;
+  Plotly.react(id, traces, L, cfg);
+}
+
+function render(){
+  const c = S();
+  // signals
+  const sg = [...D.signals].reverse();
+  Plotly.react('c-signals', [
+    {type:'bar', orientation:'h', name:'Without trait', y:sg.map(s=>s.signal), x:sg.map(s=>s.no), marker:M(c[1]),
+     customdata:sg.map(s=>s.n_no), text:sg.map(s=>s.no+'%'), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+     hovertemplate:'Without: %{x:.1f}% (n = %{customdata:,})<extra></extra>'},
+    {type:'bar', orientation:'h', name:'With trait', y:sg.map(s=>s.signal), x:sg.map(s=>s.yes), marker:M(c[0]),
+     customdata:sg.map(s=>s.n_yes), text:sg.map(s=>s.yes+'%'), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+     hovertemplate:'With: %{x:.1f}% (n = %{customdata:,})<extra></extra>'},
+  ], Object.assign(base({barmode:'group', showlegend:true, bargap:.25, bargroupgap:.08,
+      legend:{orientation:'h', y:1.08, x:0, traceorder:'reversed', font:{color:css('--text-2')}}}),
+      {xaxis:{...base().xaxis, ticksuffix:'%', title:{text:'% subscribed 2014-15', font:{color:css('--text-2'),size:12}}, range:[0,95]}}), cfg);
+  rate('c-nseas', D.rate_nseasons);
+  rate('c-last', D.rate_last);
+  rate('c-ratedon', D.rate_don);
+  rate('c-ratecity', D.rate_city, {h:true});
+  // train/test
+  bar('c-balance', {x:['0 · no subscription','1 · subscribed'], y:[D.kpi.train-D.kpi.pos, D.kpi.pos]}, {ytitle:'accounts'});
+  Plotly.react('c-cov', ['train','test'].map((k,i)=>({type:'bar', name:k, x:D.coverage.map(r=>r.file), y:D.coverage.map(r=>r[k]),
+    marker:M(c[i]), hovertemplate:`${k}: %{y:.1f}%<extra>%{x}</extra>`})),
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:{...base().yaxis, ticksuffix:'%', range:[0,105]}}), cfg);
+  // account
+  bar('c-don', D.don_hist, {ytitle:'accounts'});
+  bar('c-ndon', D.ndon_hist, {ytitle:'accounts'});
+  bar('c-fdon', D.first_don_year, {ytitle:'accounts'});
+  bar('c-accnull', D.account_nulls, {h:true, color:c[3]});
+  bar('c-city', D.cities, {h:true});
+  bar('c-rel', D.relationship, {h:true});
+  // subs
+  stacked('c-mix', D.subs_mix, 'subscriptions');
+  bar('c-sloc', D.subs_location, {h:true});
+  bar('c-ssec', D.subs_section, {h:true});
+  bar('c-sprice', D.subs_price);
+  bar('c-sseats', D.subs_seats);
+  // tickets
+  bar('c-tseason', D.tix_season, {ytitle:'purchases'});
+  bar('c-tloc', D.tix_location, {h:true});
+  bar('c-tprice', D.tix_price);
+  bar('c-tper', D.tix_per_acct, {ytitle:'accounts'});
+  bar('c-tseats', D.tix_seats);
+  bar('c-tmkt', D.tix_marketing, {h:true});
+  // concerts
+  stacked('c-cloc', D.conc_season_loc, 'performances');
+  bar('c-comp', D.composers_hist, {h:true});
+  // zip
+  const g = D.geo, mx = Math.max(...g.n);
+  Plotly.react('c-geo', [{type:'scatter', mode:'markers', x:g.lon, y:g.lat,
+    marker:{size:g.n.map(n=>6+22*Math.sqrt(n/mx)), color:g.rate, cmin:0, cmax:20,
+      colorscale:[[0,css('--seq-lo')],[1,css('--seq-hi')]], line:{color:css('--surface'),width:1.5}, opacity:.9,
+      colorbar:{title:{text:'% subscribed',font:{color:css('--text-2'),size:11}}, ticksuffix:'%', thickness:10, tickfont:{color:css('--text-2')}, outlinewidth:0}},
+    customdata:g.zip.map((z,i)=>[z,g.n[i],g.rate[i]]),
+    hovertemplate:'zip %{customdata[0]}<br>%{customdata[1]} train accounts<br>%{customdata[2]:.1f}% subscribed<extra></extra>'}],
+    Object.assign(base(), {xaxis:{...base().xaxis, title:{text:'longitude',font:{color:css('--text-2'),size:12}}},
+      yaxis:{...base().yaxis, title:{text:'latitude',font:{color:css('--text-2'),size:12}}, scaleanchor:'x', scaleratio:1.27}}), cfg);
+  bar('c-state', D.zip_states, {h:true});
+  bar('c-ztype', D.zip_type);
+}
+render();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+</script>
+</body>
+</html>

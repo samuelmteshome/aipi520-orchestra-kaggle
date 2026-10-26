@@ -1,0 +1,74 @@
+[
+ {
+  "severity": "high",
+  "lens": "leakage / validation",
+  "issue": "The optional time-shifted check (predict 2013-14 from data up to 2012-13) reused donation and ID features that describe 2013-14 or later. ID cohort alone scored AUROC 0.96 on it.",
+  "status": "Fixed: shifted builds now drop the donation and ID groups (they are a single 2014 snapshot)"
+ },
+ {
+  "severity": "high",
+  "lens": "leakage",
+  "issue": "don_years_since_first was measured to Sept 2014, so it re-encoded the 2014-first-gift flag exactly (a single cut reproduced it).",
+  "status": "Fixed: measured to 2014-01-01, NaN for 2014 first gifts. The 2014 signal now lives only in don_first_in_2014"
+ },
+ {
+  "severity": "medium",
+  "lens": "leakage",
+  "issue": "Lifetime donation totals include 2014 gifts (all 126 accounts first giving in 2014 have only 2014 money).",
+  "status": "Kept (your decision). Added strict variants pre14_don_lifetime / pre14_don_count for an ablation"
+ },
+ {
+  "severity": "high",
+  "lens": "validation",
+  "issue": "id_cohort_Lh mostly marks 2013-14 subscribers (record-creation batch), so it is a proxy, not behaviour.",
+  "status": "Your decision. Plan runs CV with and without it"
+ },
+ {
+  "severity": "medium",
+  "lens": "validation",
+  "issue": "A single 5-fold CV is too noisy (fold spread \u2248 0.04) to separate the 0.96 and 0.97 grade thresholds.",
+  "status": "Plan updated: repeated stratified CV 5\u00d75, pooled out-of-fold AUROC, paired comparisons"
+ },
+ {
+  "severity": "medium",
+  "lens": "validation",
+  "issue": "Overall AUROC is dominated by easy renewers. Only ~50 hard positives (~10 per fold), and multiple.subs lands 0\u20136 per fold.",
+  "status": "Plan updated: stratify on label \u00d7 subscribed-2013-14; report the hard-group AUROC too"
+ },
+ {
+  "severity": "medium",
+  "lens": "correctness",
+  "issue": "Canadian/UK postcodes were turned into fake US zips (e.g. K9A 0A9 \u2192 00909 San Juan PR).",
+  "status": "Fixed: zips containing letters \u2192 missing"
+ },
+ {
+  "severity": "low",
+  "lens": "correctness",
+  "issue": "9-digit ZIP+4 without a hyphen was dropped (944041913).",
+  "status": "Fixed: cut to first 5 digits"
+ },
+ {
+  "severity": "low",
+  "lens": "correctness",
+  "issue": "6 subscription rows with missing package were lumped with 'never subscribed'.",
+  "status": "Fixed: category 'unknown'"
+ },
+ {
+  "severity": "low",
+  "lens": "correctness",
+  "issue": "tix_n_concerts counted missing set numbers as a concert.",
+  "status": "Fixed: missing sets excluded"
+ },
+ {
+  "severity": "low",
+  "lens": "leakage",
+  "issue": "Active-venue list was hard-coded from 2013-14 knowledge.",
+  "status": "Fixed: derived from the as-of season"
+ },
+ {
+  "severity": "low",
+  "lens": "validation",
+  "issue": "Train and test feature distributions match; no covariate shift.",
+  "status": "No action"
+ }
+]

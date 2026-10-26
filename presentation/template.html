@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-Modelling Review</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>/*__CSS__*/
+.verdict{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px;margin-left:6px;border:1px solid var(--border)}
+.v-yes{color:var(--s6);border-color:var(--s6)} .v-part{color:var(--s4);border-color:var(--s4)}
+.model{border-top:3px solid var(--s1)} .model.m2{border-top-color:var(--s3)} .model.m3{border-top-color:var(--s7)}
+.model table td:first-child{white-space:nowrap;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.decide li{margin:6px 0}
+.sev-high{color:var(--s8);font-weight:600}.sev-medium{color:var(--s4);font-weight:600}.sev-low{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>Pre-modelling review</h1>
+<p class="sub">Your heuristics tested against the training data, the cleaning applied, feature skew and signal, and three candidate models with tuning and validation plans. <b>Nothing has been trained yet.</b> Approve or change the decisions at the end, then the models get run.</p>
+<div class="kpis" id="kpis"></div>
+<nav>
+  <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
+  <a href="#feat">Features</a><a href="#models">3 models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+</nav>
+
+<section id="heur">
+  <h2>1 · Your heuristics, checked</h2>
+  <p class="sub">Subscription rate in the 2014-15 season (label = 1) by bucket. Base rate <b id="base"></b>. Hover for group sizes.</p>
+  <div class="grid">
+    <div class="card"><h3>"Longer ago → less likely" <span class="verdict v-yes">holds</span></h3><p class="cap">Seasons since last subscription. A sharp cliff after one season.</p><div class="chart" id="c-rec"></div></div>
+    <div class="card"><h3>"More seasons subscribed → more likely" <span class="verdict v-yes">holds</span></h3><p class="cap">Total seasons subscribed, 1993-94 to 2013-14.</p><div class="chart" id="c-ns"></div></div>
+    <div class="card"><h3>"Attendance across seasons" <span class="verdict v-yes">holds</span></h3><p class="cap">Distinct seasons with any subscription or single ticket.</p><div class="chart" id="c-any"></div></div>
+    <div class="card"><h3>Streak among last season's subscribers</h3><p class="cap">Consecutive seasons ending 2013-14 (only the 345 who subscribed in 2013-14).</p><div class="chart" id="c-streak"></div></div>
+    <div class="card"><h3>"Higher lifetime donations → more likely" <span class="verdict v-yes">holds</span></h3><p class="cap">Lifetime amount donated.</p><div class="chart" id="c-don"></div></div>
+    <div class="card"><h3>"More donations → more likely" <span class="verdict v-yes">holds</span></h3><p class="cap">Number of lifetime donations.</p><div class="chart" id="c-donc"></div></div>
+    <div class="card"><h3>Single-ticket recency <span class="verdict v-part">weak</span></h3><p class="cap">Seasons since last single ticket (tickets cover 2010-14 only).</p><div class="chart" id="c-tix"></div></div>
+    <div class="card"><h3>2014 first gifts &amp; multiple.subs</h3><p class="cap">Left: first donation in 2014 (all accounts). Right: multiple.subs among 2013-14 subscribers.</p><div class="chart" id="c-small"></div></div>
+    <div class="card wide"><h3>"Locations closing over the years" <span class="verdict v-yes">confirmed</span></h3><p class="cap">Subscriptions per venue series per season. Santa Rosa stops after 1999-00, Orange County runs 1996-2002, Contra Costa ends after 2010-11. Only four series remain in 2013-14.</p><div class="chart tall" id="c-venue"></div></div>
+    <div class="card wide"><h3>Rate by venue of last subscription</h3><p class="cap">Patrons whose last series closed (Contra Costa, Santa Rosa, Orange County) almost never return. That is mostly recency again: their last season is old by construction.</p><div class="chart" id="c-loc"></div></div>
+  </div>
+  <div class="callout"><b>"What season is the test data in?"</b> All test accounts are predicted for the same season, 2014-15, the same as train. Train and test are a random split of accounts, not a split in time. Every "seasons since" feature is therefore measured from 2014-15 for both.</div>
+</section>
+
+<section id="clean">
+  <h2>2 · Cleaning applied (your caveat decisions)</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Your decision</th><th>What the pipeline does</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Include 2014 gifts</td><td>Lifetime donation totals kept as-is. New flag <code>don_first_in_2014</code> (26% positive vs 4.8% base). Tree models can weight it on their own; extra weighting is a modelling choice (see decisions).</td><td><code>src/features.py</code></td></tr>
+      <tr><td>2</td><td>Decode Latin-1 before merging</td><td><code>account.csv</code> is read with <code>encoding="latin-1"</code> ("Latin-1" is an older text encoding; reading with the wrong one garbles accented city names). The 2014-15 concert text is repaired from Mac-Roman mojibake ("RossiniÕs" → "Rossini’s").</td><td><code>src/clean.py</code></td></tr>
+      <tr><td>3</td><td>Zip: first 5, zero-pad</td><td>"94501-3315" → "94501", "7631" → "07631". 85% of accounts have a usable billing zip and 99.6% of those match <code>zipcodes.csv</code>.</td><td><code>zip5()</code></td></tr>
+      <tr><td>4</td><td>Clean price level</td><td>Ticket price split into a number (0–4, "4.0" → 4) and a text label (Adult / Youth / GA). Subscription price levels are already numeric.</td><td><code>load_tickets()</code></td></tr>
+      <tr><td>5</td><td>Stratified CV folds</td><td>Planned: folds stratified on label × subscribed-in-2013-14. Each fold gets ~66 positives, including ~10 of the hard new/lapsed positives. Only 12 recent subscribers have multiple.subs, so it can't be stratified on directly (see §6).</td><td>model stage</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub" style="margin-top:12px">Also fixed: seasons → start year (2013-2014 → 2013), "yes/no" flags → booleans, 99 = "never" for recency features, 0 for counts when an account has no history. Cleaned files: <code>data/processed/*.parquet</code>.</p>
+</section>
+
+<section id="skew">
+  <h2>3 · Skew and signal</h2>
+  <p class="sub">The single-feature AUROC is how well one feature alone ranks subscribers above non-subscribers (0.5 = no signal); arrows show direction. Skew above ~2 means a long right tail. Tree models don't care about skew; logistic regression needs <code>log1p</code>.</p>
+  <div class="grid">
+    <div class="card wide"><h3>Top 20 features by single-feature AUROC</h3><p class="cap">Training set, 6,941 accounts. The subscription-history group dominates.</p><div class="chart tall" id="c-auc"></div></div>
+    <div class="card"><h3>Most skewed features: raw vs log1p</h3><p class="cap">|skewness| before and after log(1 + x).</p><div class="chart tall" id="c-skew"></div></div>
+    <div class="card"><h3>Lifetime donations: raw vs log1p</h3><p class="cap">Raw values are capped at $20k for display; 72% of accounts are at $0.</p><div class="chart tall" id="c-dhist"></div></div>
+  </div>
+  <details><summary>Full feature table (skew, missingness, AUROC, test/train mean ratio)</summary><div class="tbl" id="t-feat"></div></details>
+  <div class="callout warn"><b>Skew of findings.</b> One question dominates the signal: did they subscribe recently? Several features (<code>sub_n_last3/5</code>, <code>sub_streak</code>, <code>sub_last_season</code>, <code>sub_seasons_since_last</code>, <code>any_seasons_since_last</code>, <code>id_cohort_Lh</code>) are near-duplicates of it, each with AUROC ≈ 0.90–0.94. Adding more of them won't move AUROC much. The remaining headroom is in ranking the ~50 new/lapsed positives, where donations, 2014 gifts, tickets and newer account IDs carry the signal. Test/train mean ratios sit near 1, so there's no sign of distribution shift.</div>
+</section>
+
+<section id="feat">
+  <h2>4 · Feature set</h2>
+  <p class="sub" id="featsum"></p>
+  <div class="grid" id="feat-groups"></div>
+</section>
+
+<section id="models">
+  <h2>5 · Three candidate models</h2>
+  <p class="sub">All three use scikit-learn 1.9, which is already installed. LightGBM/XGBoost/Optuna are not installed and aren't needed at this data size. Drafted by GPT-6 Astra via OmniRoute and reviewed by Claude; full text in <code>eda/external/model_plans_gpt6astra.md</code>. AUROC ranges are planning guesses, not measurements.</p>
+  <div class="grid">
+    <div class="card model">
+      <h3>A · Elastic-net logistic regression</h3>
+      <p class="cap">Stable, interpretable baseline. Weak spot: assumes effects add up linearly, so it misses "renewer vs newcomer" interactions.</p>
+      <table><tbody>
+        <tr><td>preprocess</td><td>log1p skewed features; 99 → NaN + "never" flag; median impute + missing flags; standardise; one-hot categoricals (inside each fold)</td></tr>
+        <tr><td>C</td><td>log-uniform 1e-3 – 1e2</td></tr>
+        <tr><td>l1_ratio</td><td>0, .25, .5, .75, 1</td></tr>
+        <tr><td>class_weight</td><td>None, balanced</td></tr>
+        <tr><td>interactions</td><td>off / on (recent-subscriber × key features)</td></tr>
+        <tr><td>search</td><td>random, 30 configs × 5 folds</td></tr>
+        <tr><td>guess</td><td>AUROC 0.94–0.97</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card model m2">
+      <h3>B · Random forest</h3>
+      <p class="cap">Finds thresholds and interactions on its own; bagging keeps variance low. Weak spot: coarse probability ranking, and it can memorise tiny groups (e.g. multiple.subs).</p>
+      <table><tbody>
+        <tr><td>preprocess</td><td>99 → NaN + flag; median impute + missing flags; one-hot; no scaling/log</td></tr>
+        <tr><td>max_depth</td><td>4, 6, 10, None</td></tr>
+        <tr><td>min_samples_leaf</td><td>2, 5, 10, 20, 40</td></tr>
+        <tr><td>max_features</td><td>sqrt, 0.4, 0.7, 1.0</td></tr>
+        <tr><td>max_samples</td><td>0.65, 0.85, 1.0</td></tr>
+        <tr><td>class_weight</td><td>None, balanced_subsample</td></tr>
+        <tr><td>search</td><td>random, 24 configs × 5 folds at 300 trees; finalists refit with 800</td></tr>
+        <tr><td>guess</td><td>AUROC 0.94–0.975</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card model m3">
+      <h3>C · Histogram gradient boosting</h3>
+      <p class="cap">Usually the sharpest ranker on tabular data; handles NaN and categoricals natively. Weak spot: can overfit the ~50 hard positives without depth/regularisation limits.</p>
+      <table><tbody>
+        <tr><td>preprocess</td><td>keep NaN; 99 → NaN + flag; native categoricals; no scaling/log</td></tr>
+        <tr><td>learning_rate</td><td>log-uniform 0.025 – 0.15</td></tr>
+        <tr><td>max_iter</td><td>100, 250, 500</td></tr>
+        <tr><td>max_leaf_nodes</td><td>3, 7, 15, 31</td></tr>
+        <tr><td>min_samples_leaf</td><td>15, 30, 60, 100</td></tr>
+        <tr><td>l2_regularization</td><td>0, 0.1, 1, 10, 30</td></tr>
+        <tr><td>class_weight</td><td>None, balanced</td></tr>
+        <tr><td>search</td><td>random, 30 configs × 5 folds; early stopping off</td></tr>
+        <tr><td>guess</td><td>AUROC 0.95–0.98</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</section>
+
+<section id="cv">
+  <h2>6 · Cross-validation and ensemble plan</h2>
+  <ul class="facts">
+    <li><b>Same folds for all three models</b>: repeated stratified 5-fold (5 repeats = 25 fits per config), stratified on <code>label × subscribed-in-2013-14</code>. Each fold then holds ~10 of the hard new/lapsed positives.</li>
+    <li><b>Score on pooled out-of-fold AUROC averaged over repeats</b>, not single-fold means: fold-to-fold spread is ~0.04, too noisy to tell 0.96 from 0.97. Models are compared pairwise on identical splits.</li>
+    <li><b>Tune on one 5-fold split, confirm on all 5 repeats.</b> The top 3 configs per model get the full 5×5. Ties go to the simpler model.</li>
+    <li><b>Report two numbers per model</b>: overall AUROC and AUROC on the hard group (accounts that did <i>not</i> subscribe in 2013-14). Gains there decide the top of the leaderboard but barely move the overall number.</li>
+    <li><b>All preprocessing fitted inside each training fold</b> (imputation, scaling, encoders). No oversampling, since AUROC doesn't need balanced classes.</li>
+    <li><b>Rare signals</b> (multiple.subs: 12 recent subscribers; 2014 gifts: 31 non-subscribers) stay as ordinary features. Regularisation and leaf-size limits stop models from memorising them.</li>
+    <li><b>Ablations, decided in advance:</b> with vs without the ID-cohort group; with vs without <code>don_first_in_2014</code>; normal vs strict (<code>pre14_</code>) donation totals. A feature stays only if its gain beats the fold noise.</li>
+    <li><b>Optional time-shifted check:</b> rebuild features as of 2012-13 and predict 2013-14 across all 19,833 accounts (982 positives). The pipeline automatically drops donation and ID features here because they can't be shifted. This is a stress test, not the selection metric.</li>
+    <li><b>Ensemble:</b> start with an equal-weight average of the three models' out-of-fold probabilities. Learned weights or stacking only if evaluated with nested CV. Leaderboard submissions are sanity checks (10/day), not a tuning signal.</li>
+    <li><b>Cost:</b> 84 configs × 5 folds, plus 9 finalists × 25 fits, on 6,941 rows: roughly 5–15 minutes on a laptop, with random forests the slowest.</li>
+  </ul>
+</section>
+
+<section id="decide">
+  <h2>7 · Decisions for you before running</h2>
+  <ol class="decide">
+    <li><b>Models:</b> run all three (A, B, C) plus the equal-weight ensemble? Or drop or swap one?</li>
+    <li><b>ID-cohort features</b> (<code>id_cohort_Lh</code>, <code>id_newer_than_Nu</code>): include, exclude, or run both and decide on CV? They encode when the database record was created, not patron behaviour, and you'd need to defend them in the write-up.</li>
+    <li><b>2014 gifts:</b> keep <code>don_first_in_2014</code> as a plain feature (current), or also add sample weights / an interaction to "weight it higher"? Plain inclusion lets the models learn its weight from data. Also: use lifetime totals as-is (include 2014 money) or the strict <code>pre14_</code> versions, or let the ablation decide?</li>
+    <li><b>Time-shifted holdout:</b> build it as an extra check, or skip it for now?</li>
+    <li><b>Search budget:</b> the random-search sizes above (30 / 24 / 30 configs), or larger or smaller?</li>
+  </ol>
+</section>
+
+<section id="review">
+  <h2>8 · Independent pipeline review</h2>
+  <p class="sub">Three reviewer agents (leakage, code correctness, validation design) read the code and ran checks. Claude re-verified each item; anything that needed fixing has been fixed.</p>
+  <div class="tbl" id="t-review"></div>
+</section>
+</main>
+
+<script>
+const D = /*__DATA__*/null;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = n => (n ?? '').toLocaleString();
+const S = () => [1,2,3,4,5,6,7,8].map(i => css('--s'+i));
+document.getElementById('base').textContent = D.base + '%';
+document.getElementById('kpis').innerHTML = [
+  [fmt(D.n), 'training accounts'], [D.pos + ' (' + D.base + '%)', 'subscribers in 2014-15'],
+  [D.n_feat, 'engineered features'], ['0.944', 'best single-feature AUROC'], ['3 + ensemble', 'candidate models'],
+].map(([v,l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+
+function table(id, rows, cols){
+  const head = cols.map(c => `<th>${c[1]}</th>`).join('');
+  const body = rows.map(r => '<tr>' + cols.map(c => {
+    const v = r[c[0]]; const num = typeof v === 'number';
+    const cls = c[0]==='severity' ? `sev-${v}` : (num?'num':'');
+    return `<td class="${cls}">${num ? fmt(v) : String(v ?? '').replace(/</g,'&lt;')}</td>`;
+  }).join('') + '</tr>').join('');
+  document.getElementById(id).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+table('t-feat', D.table, [['feature','Feature'],['group','Group'],['auc','AUROC'],['dir','Dir'],['skew','Skew'],['skew_log','Skew log1p'],['missing','% missing'],['test_mean_ratio','Test/train mean']]);
+if (D.findings.length) table('t-review', D.findings, [['severity','Severity'],['lens','Lens'],['issue','Issue'],['status','Status']]);
+else document.getElementById('t-review').innerHTML = '<p class="cap">Review pending.</p>';
+
+const groups = {};
+D.table.forEach(r => (groups[r.group] = groups[r.group] || []).push(r.feature));
+document.getElementById('featsum').textContent = `${D.n_feat} features in ${Object.keys(groups).length + 0} groups (plus 2 categoricals: last package, last venue). Every group can be switched on or off in modelling.`;
+document.getElementById('feat-groups').innerHTML = Object.entries(groups).map(([g,fs]) =>
+  `<div class="card"><h3>${g} <span class="tag">${fs.length}</span></h3><p class="cap" style="line-height:1.7">${fs.map(f=>`<code>${f}</code>`).join(' ')}</p></div>`).join('');
+
+function base(extra={}){
+  const t = css('--text-2'), g = css('--grid');
+  const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
+  return Object.assign({margin:{l:8,r:12,t:8,b:8}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    font:{family:'-apple-system,BlinkMacSystemFont,Segoe UI,Inter,sans-serif', color:t, size:12},
+    xaxis:ax(), yaxis:ax(), bargap:.28, showlegend:false,
+    hoverlabel:{bgcolor:css('--surface'), bordercolor:css('--border'), font:{color:css('--text')}},
+    legend:{orientation:'h', y:1.1, x:0, font:{color:t}}}, extra);
+}
+const cfg = {displayModeBar:false, responsive:true};
+const M = c => ({color:c, line:{color:css('--surface'), width:1}});
+function rate(id, d, {h=false}={}){
+  const tr = {type:'bar', marker:M(S()[0]), customdata:d.n, x:d.x, y:d.rate, text:d.rate.map(v=>v.toFixed(1)+'%'),
+    textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:11},
+    hovertemplate:'%{x}<br>%{y:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'};
+  if (h){ Object.assign(tr,{orientation:'h', x:[...d.rate].reverse(), y:[...d.x].reverse(), customdata:[...d.n].reverse(), text:[...d.rate].reverse().map(v=>v.toFixed(1)+'%'),
+    hovertemplate:'%{y}<br>%{x:.1f}% subscribed<br>n = %{customdata:,}<extra></extra>'}); }
+  const L = base(); const va = h?L.xaxis:L.yaxis; va.title.text='% subscribed'; va.ticksuffix='%';
+  (h?L.yaxis:L.xaxis).type='category';
+  Plotly.react(id, [tr], L, cfg);
+}
+function render(){
+  const c = S();
+  rate('c-rec', D.h_recency); rate('c-ns', D.h_nseasons); rate('c-any', D.h_any); rate('c-streak', D.h_streak);
+  rate('c-don', D.h_don); rate('c-donc', D.h_doncount); rate('c-tix', D.h_tix); rate('c-loc', D.h_loc);
+  const sm = {x:['no 2014 first gift','first gift in 2014','recent sub, no multiple','recent sub, multiple.subs'],
+    rate:[...D.h_2014.rate, ...D.h_multi.rate], n:[...D.h_2014.n, ...D.h_multi.n]};
+  rate('c-small', sm);
+  Plotly.react('c-venue', [{type:'heatmap', x:D.venues.x, y:D.venues.y, z:D.venues.z, colorscale:[[0,css('--surface')],[0.02,css('--seq-lo')],[1,css('--seq-hi')]],
+    xgap:2, ygap:2, hovertemplate:'%{y}<br>season %{x}: %{z:,} subscriptions<extra></extra>',
+    colorbar:{thickness:10, outlinewidth:0, tickfont:{color:css('--text-2')}}}],
+    Object.assign(base(), {xaxis:{...base().xaxis, type:'category', tickangle:-45}, yaxis:{...base().yaxis, autorange:'reversed'}}), cfg);
+  Plotly.react('c-auc', [{type:'bar', orientation:'h', x:[...D.auc_top.y].reverse(), y:[...D.auc_top.x].reverse(), marker:M(c[0]),
+    hovertemplate:'%{y}: AUROC %{x:.3f}<extra></extra>'}],
+    Object.assign(base(), {xaxis:{...base().xaxis, range:[0.5,1], title:{text:'single-feature AUROC',font:{color:css('--text-2'),size:12}}}, yaxis:{...base().yaxis, type:'category'}}), cfg);
+  Plotly.react('c-skew', [
+    {type:'bar', orientation:'h', name:'raw', y:[...D.skew_top.x].reverse(), x:[...D.skew_top.raw].reverse().map(Math.abs), marker:M(c[1]), hovertemplate:'raw |skew| %{x:.1f}<extra>%{y}</extra>'},
+    {type:'bar', orientation:'h', name:'log1p', y:[...D.skew_top.x].reverse(), x:[...D.skew_top.log].reverse().map(Math.abs), marker:M(c[0]), hovertemplate:'log1p |skew| %{x:.1f}<extra>%{y}</extra>'}],
+    Object.assign(base({barmode:'group', showlegend:true}), {xaxis:{...base().xaxis, type:'log', title:{text:'|skewness| (log scale)',font:{color:css('--text-2'),size:12}}}, yaxis:{...base().yaxis, type:'category'}}), cfg);
+  Plotly.react('c-dhist', [
+    {type:'histogram', x:D.don_hist.raw, nbinsx:40, name:'raw ($, capped 20k)', marker:M(c[1]), xaxis:'x', yaxis:'y', hovertemplate:'%{x}: %{y:,}<extra>raw</extra>'},
+    {type:'histogram', x:D.don_hist.log, nbinsx:40, name:'log1p', marker:M(c[0]), xaxis:'x2', yaxis:'y2', hovertemplate:'%{x}: %{y:,}<extra>log1p</extra>'}],
+    Object.assign(base({showlegend:true, grid:{rows:2, columns:1, pattern:'independent'}}),
+      {yaxis:{...base().yaxis, type:'log'}, yaxis2:{...base().yaxis, type:'log'}, xaxis2:{...base().xaxis}}), cfg);
+}
+render();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+</script>
+</body>
+</html>
