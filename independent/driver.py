@@ -29,6 +29,8 @@ from sklearn.metrics import roc_auc_score
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "for_students"
 GATEWAY = "http://127.0.0.1:20128/v1/chat/completions"
+_subs = pd.read_csv(RAW / "subscriptions.csv")
+RECENT = set(_subs.loc[_subs["season"] == "2013-2014", "account.id"])   # segment R, for neutral segment-H AUROC
 SCRIPT_TIMEOUT = 25 * 60
 MAX_FIX_ATTEMPTS = 2
 DENY = [r"\bsubprocess\b", r"os\.system", r"\bsocket\b", r"\brequests\b", r"urllib", r"http\.client",
@@ -71,12 +73,25 @@ STAGES = [
      "STAGE 3 of 4 — Feature pruning. Prune features for your tuned models using a method you judge appropriate "
      "(it may differ per model), keeping the selection inside your validation so it does not leak. Re-test and report "
      "pruned vs unpruned CV AUROC per model."),
+    ("5_segment",
+     "STAGE 5 (extra, requested by the student) — Segment modelling. The student wants two segments: segment R = accounts "
+     "with a subscription in the 2013-14 season, segment H = every other account (the hard group: few positives among many "
+     "accounts). Build a separate, strongly regularised model trained on segment H only, keep or build a model for segment R, "
+     "and combine the two into one score in a way you validate. Also engineer, from the billing zip: (a) the distance from the "
+     "patron's home to the venue they most recently attended, and (b) neighbourhood income (zipcodes.csv TotalWages / "
+     "TaxReturnsFiled), and test whether they help in segment H. Keep feature selection and tuning leakage-safe as in your "
+     "earlier stages. Report, for your stage-4 model and for the segmented model, overall CV AUROC and AUROC within segment H "
+     "(save OOF for both), and write OUT_DIR/submission.csv for the segmented model."),
     ("4_combine_final",
      "STAGE 4 of 4 — Final model. Find the best combination of your (pruned) models to maximise AUROC on unseen data "
      "while avoiding overfitting (your choice of method, e.g. a single model, averaging, stacking). Validate the final "
      "choice, refit as appropriate, and write OUT_DIR/submission.csv. In your reply's rationale, also state: the final "
      "model, the features it uses, the anti-overfitting techniques you used, and your expected AUROC on unseen data."),
 ]
+
+
+STAGES.sort(key=lambda st: st[0])
+CORE_STAGES = 4
 
 
 def key():
@@ -145,6 +160,9 @@ def assess(stage_dir, final):
             if miss:
                 notes.append(f"{f.name}: {miss} train accounts missing a prediction")
             recomputed[f.stem[4:]] = round(float(roc_auc_score(j["label"][j["pred"].notna()], j["pred"].dropna())), 5)
+            if stage_dir.name.startswith("5"):
+                hj = j[~j.index.isin(RECENT) & j["pred"].notna()]
+                recomputed[f.stem[4:] + " [segment H]"] = round(float(roc_auc_score(hj["label"], hj["pred"])), 5)
         except Exception as e:  # report, never fix
             notes.append(f"{f.name}: could not be read ({e})")
     if final:
@@ -200,20 +218,22 @@ def main(name, model, eda_path, stages, resume=False):
         messages = json.loads(tp.read_text())
         if messages[-1]["role"] == "user":
             resume_prompt = messages.pop()["content"]
-        start = sum(1 for st, _ in STAGES if (run_dir / st / "results.json").exists()
-                    and (not st.startswith("4") or (run_dir / st / "submission.csv").exists()))
-        if resume_prompt is None and start > 0:
+        start = sum(1 for st, _ in STAGES[:stages] if (run_dir / st / "results.json").exists()
+                    and (st[0] not in "45" or (run_dir / st / "submission.csv").exists()))
+        if resume_prompt is None and start > 0 and (run_dir / "final_summary.md").exists() and start >= CORE_STAGES:
+            pending = ""          # the conversation already ended with a final summary; just add the new stage
+        elif resume_prompt is None and start > 0:
             # The last stage ran but its report was never delivered: rebuild it from the saved outputs.
             prev = STAGES[start - 1][0]
             sd = run_dir / prev
-            results, recomputed, notes = assess(sd, prev.startswith("4"))
+            results, recomputed, notes = assess(sd, prev[0] in "45")
             pending = feedback(prev, 0, (sd / "stdout.txt").read_text(), (sd / "stderr.txt").read_text(), 0,
                                results, recomputed, notes, sd) + "\n\n"
         log(f"resuming at stage {start + 1} from saved transcript ({len(messages)} messages)")
     for i, (stage, instr) in enumerate(STAGES[:stages]):
         if i < start:
             continue
-        final = stage.startswith("4")
+        final = stage[0] in "45"
         stage_dir = run_dir / stage
         prompt = pending + instr
         if resume_prompt is not None:
@@ -246,7 +266,7 @@ def main(name, model, eda_path, stages, resume=False):
     served.add(m)
     messages.append({"role": "assistant", "content": summary})
     (run_dir / "transcript.json").write_text(json.dumps(messages, indent=1))
-    (run_dir / "final_summary.md").write_text(summary)
+    (run_dir / ("final_summary.md" if stages <= CORE_STAGES else f"final_summary_stage{stages}.md")).write_text(summary)
     (run_dir / "served_models.json").write_text(json.dumps(sorted(x for x in served if x)))
     log(f"done; requested {model}, gateway-reported serving models {sorted(x for x in served if x)}")
 
