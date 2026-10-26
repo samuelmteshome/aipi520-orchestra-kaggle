@@ -95,9 +95,10 @@ def chat(model, messages, log):
             log(f"  reply from {d.get('model')} in {time.time() - t:.0f}s, usage {d.get('usage')}")
             return d["choices"][0]["message"]["content"], d.get("model")
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, KeyError) as e:
-            msg = e.read().decode()[:300] if isinstance(e, urllib.error.HTTPError) else str(e)
+            msg = e.read().decode()[:400] if isinstance(e, urllib.error.HTTPError) else str(e)
             log(f"  gateway error (attempt {attempt + 1}): {msg}")
-            time.sleep(30 * (attempt + 1))
+            m = re.search(r'"reset_seconds":\s*(\d+)', msg)     # honour a provider cooldown (max 40 min)
+            time.sleep(min(int(m.group(1)) + 30, 2400) if m else 30 * (attempt + 1))
     raise RuntimeError("gateway failed 4 times")
 
 
@@ -172,7 +173,7 @@ def feedback(stage, rc, out, err, secs, results, recomputed, notes, stage_dir):
     return "\n".join(parts)
 
 
-def main(name, model, eda_path, stages):
+def main(name, model, eda_path, stages, resume=False):
     run_dir = ROOT / "independent" / "runs" / name
     run_dir.mkdir(parents=True, exist_ok=True)
     data_dir = run_dir / "data"
@@ -191,11 +192,32 @@ def main(name, model, eda_path, stages):
                 {"role": "user", "content": (ROOT / "eda/external/prompt_and_dossier.md").read_text()},
                 {"role": "assistant", "content": Path(eda_path).read_text()}]
     pending = f"{task}\n\n{ENV}\n\n"
-    served = set()
+    served, start, resume_prompt = set(), 0, None
+    tp = run_dir / "transcript.json"
+    if resume and tp.exists():
+        # Continue the same conversation: completed stages are those with results.json; the unanswered
+        # last user message (if any) is re-sent as-is.
+        messages = json.loads(tp.read_text())
+        if messages[-1]["role"] == "user":
+            resume_prompt = messages.pop()["content"]
+        start = sum(1 for st, _ in STAGES if (run_dir / st / "results.json").exists()
+                    and (not st.startswith("4") or (run_dir / st / "submission.csv").exists()))
+        if resume_prompt is None and start > 0:
+            # The last stage ran but its report was never delivered: rebuild it from the saved outputs.
+            prev = STAGES[start - 1][0]
+            sd = run_dir / prev
+            results, recomputed, notes = assess(sd, prev.startswith("4"))
+            pending = feedback(prev, 0, (sd / "stdout.txt").read_text(), (sd / "stderr.txt").read_text(), 0,
+                               results, recomputed, notes, sd) + "\n\n"
+        log(f"resuming at stage {start + 1} from saved transcript ({len(messages)} messages)")
     for i, (stage, instr) in enumerate(STAGES[:stages]):
+        if i < start:
+            continue
         final = stage.startswith("4")
         stage_dir = run_dir / stage
         prompt = pending + instr
+        if resume_prompt is not None:
+            prompt, resume_prompt = resume_prompt, None
         for attempt in range(MAX_FIX_ATTEMPTS + 1):
             log(f"{stage}: asking {model} (attempt {attempt + 1})")
             messages.append({"role": "user", "content": prompt})
@@ -235,5 +257,6 @@ if __name__ == "__main__":
     ap.add_argument("--model", required=True)
     ap.add_argument("--eda", required=True, help="this model's own earlier EDA reply")
     ap.add_argument("--stages", type=int, default=4)
+    ap.add_argument("--resume", action="store_true", help="continue a run from its saved transcript")
     a = ap.parse_args()
-    main(a.name, a.model, a.eda, a.stages)
+    main(a.name, a.model, a.eda, a.stages, a.resume)
