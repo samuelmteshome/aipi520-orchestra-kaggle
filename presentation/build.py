@@ -105,6 +105,22 @@ if cvp.exists():
     R["tuning"] = {m: {"val": d["val_auroc"].round(4).tolist(), "train": d["train_auroc"].round(4).tolist(),
                        "cfg": d["config"].tolist()} for m, d in tu.groupby("model")}
 
+# ---- feature contributions & over-fitting diagnostics (after src/analysis.py)
+anp = ROOT / "results/analysis.json"
+if anp.exists():
+    an = json.loads(anp.read_text())
+    pf = pd.DataFrame(an["permutation_feature"])
+    piv = pf.pivot_table(index="feature", columns="model", values="mean")
+    piv = piv.loc[piv["average_A_B_C"].sort_values(ascending=False).index[:18]]
+    R["imp_feat"] = {"x": piv.index.tolist(), **{m: piv[m].round(4).tolist() for m in ["forest", "mlp_ensemble", "average_A_B_C"]}}
+    gp = pd.DataFrame(an["permutation_group"]).pivot_table(index="group", columns="model", values="mean")
+    gp = gp.loc[gp["average_A_B_C"].sort_values(ascending=False).index]
+    R["imp_group"] = {"x": gp.index.tolist(), **{m: gp[m].round(4).tolist() for m in ["forest", "mlp_ensemble", "average_A_B_C"]}}
+    tv = pd.DataFrame(an["train_vs_val"]).pivot(index="model", columns="variable", values="mean")
+    R["gap"] = {"x": tv.index.tolist(), "train": tv["train_auroc"].round(4).tolist(), "val": tv["val_auroc"].round(4).tolist()}
+    lc = pd.DataFrame(an["learning_curve"]).pivot(index="frac", columns="model", values="mean")
+    R["lc"] = {"x": (lc.index * 100).round().astype(int).tolist(), **{m: lc[m].round(4).tolist() for m in lc.columns}}
+
 css = re.search(r"<style>(.*?)</style>", (ROOT / "eda/report_template.html").read_text(), re.S).group(1)
 html = (ROOT / "presentation/template.html").read_text().replace("/*__CSS__*/", css).replace("/*__DATA__*/null", json.dumps(R))
 (ROOT / "presentation/data_review.html").write_text(html)

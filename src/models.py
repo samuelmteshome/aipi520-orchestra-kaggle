@@ -83,7 +83,7 @@ def scaled_preprocessor(X):
     skew = _skewed(X)
     other = [c for c in X.columns if c not in cat and c not in skew]
     num_steps = lambda log: Pipeline(
-        ([("log1p", FunctionTransformer(np.log1p))] if log else [])
+        ([("log1p", FunctionTransformer(np.log1p, feature_names_out="one-to-one"))] if log else [])
         + [("impute", SimpleImputer(strategy="median", add_indicator=True)), ("scale", StandardScaler())])
     ct = ColumnTransformer([
         ("skewed", num_steps(True), skew),

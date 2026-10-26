@@ -17,11 +17,11 @@
 <body>
 <main>
 <h1>Model review · results</h1>
-<p class="sub">Your heuristics tested against the training data, the cleaning applied, feature skew and signal, and three candidate models with tuning and validation plans. <b>Nothing has been trained yet.</b> Approve or change the decisions at the end, then the models get run.</p>
+<p class="sub">Results of the tune-once run, the features that drive each model, and a lecture-grounded strategy for generalising to unseen data. The earlier sections record how we got here: your heuristics, cleaning, feature selection and the model plans.</p>
 <div class="kpis" id="kpis"></div>
 <nav>
   <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
-  <a href="#results">Results</a><a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+  <a href="#results">Results</a><a href="#contrib">Feature contributions</a><a href="#strategy">Generalisation strategy</a><a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
 </nav>
 
 <section id="results">
@@ -42,6 +42,43 @@
       <li>Without the ID features, every model drops 0.006–0.011 pooled, and the hard group drops most (−0.04 to −0.07).</li>
       <li>These scores are slightly optimistic because tuning used repeat 0, which is also one of the 25 scored folds ("tune once", as approved). The public leaderboard is the first truly unseen check.</li>
     </ol></div>
+</section>
+
+<section id="contrib">
+  <h2>Feature contributions (random forest, MLP ensemble, A+B+C average)</h2>
+  <p class="sub">Permutation importance: on each validation fold, shuffle a feature (or a whole group) and measure how much AUROC falls. Repeat-0 folds, 5 shuffles each. Many history features are near-copies, so shuffling one alone understates it because the model leans on its twin. The group view is the fairer measure of what matters.</p>
+  <div class="grid">
+    <div class="card wide"><h3>By feature group: AUROC lost when the whole group is shuffled</h3><p class="cap">Subscription history carries most of the signal. Tickets and interactions add about nothing.</p><div class="chart" id="c-impg"></div></div>
+    <div class="card wide"><h3>By single feature: top 18 for the average model</h3><p class="cap">Small values here don't mean "useless", just "replaceable by a correlated feature". Hover for exact drops; negatives mean shuffling helped (noise).</p><div class="chart tall" id="c-impf"></div></div>
+    <div class="card"><h3>Train vs validation AUROC</h3><p class="cap">Gaps of 0.004–0.009: mild overfitting (W2_H1 s37). The MLP has the largest gap, logistic the smallest.</p><div class="chart" id="c-gap"></div></div>
+    <div class="card"><h3>Learning curve</h3><p class="cap">Validation AUROC vs share of training rows used. Still rising at 100%, so more data helps more than shrinking the models.</p><div class="chart" id="c-lc"></div></div>
+  </div>
+  <ul class="facts">
+    <li><b>Strongest single features:</b> <code>id_newer_than_Nu</code> (new-account signal), <code>any_seasons_since_last</code> and <code>sub_seasons_since_last</code> (your recency heuristic), then <code>sub_streak</code> and <code>sub_n_last5</code>.</li>
+    <li><b><code>id_cohort_Lh</code> looks near zero on its own</b> because it duplicates "subscribed last season". The ablation still shows that removing both ID features costs 0.005–0.010.</li>
+    <li><b>Geography matters as a group</b> (≈0.010), mostly through "has a usable billing zip". The logistic model's largest geographic coefficient is the missing-zip indicator.</li>
+    <li><b>Logistic uses the history features most directly:</b> shuffling the history group costs it 0.16 AUROC vs 0.04 for the MLP, which spreads the signal across correlated inputs.</li>
+  </ul>
+</section>
+
+<section id="strategy">
+  <h2>Generalisation strategy: getting the best score on data the model has never seen</h2>
+  <p class="sub">Proposal by GPT-6 Astra (requested <code>cx/gpt-6-astra-high</code>, served as reported by the gateway <code>gpt-6-astra-high</code>, 99 s) from the full AIPI 520 lecture text plus the verified results above. Claude re-checked every number against <code>results/</code> and every slide citation against the slide text. Full text: <code>eda/external/generalisation_strategy_gpt6astra.md</code>.</p>
+  <div class="callout"><b>Diagnosis.</b> This is mild overfitting, not severe (train–val gaps 0.004–0.009). The CV→public drop (0.006–0.012 vs mean-fold AUROC) is best explained by three things together: (1) selection optimism from tuning on repeat 0 and then scoring it (W2_H1 s16, s21); (2) noise from a public set with only ~40–60 subscribers; (3) data limits, since the learning curve is still rising.</div>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Action</th><th>Lecture</th><th>Claude's check / estimate</th><th>Est. cost (M2)</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Audit leakage; keep ID features unless their provenance fails</td><td>W1 s50; W2_H1 s17–19</td><td>Train/test ID-cohort shares match (Lh 4.65% vs 4.61%). Leakage was already reviewed; the 2014 first-gift flag is the remaining timing risk.</td><td>none</td></tr>
+      <tr><td>2</td><td>Nested CV (5 outer × 3 inner) for an unbiased estimate of a short list</td><td>W2_H1 s21, s27–28</td><td>Gives an honest number for the write-up; doesn't improve predictions.</td><td>~45–60 min</td></tr>
+      <tr><td>3</td><td>MLP: pick the epoch count with the inner split, then refit on 100% of rows (it currently trains on 85%)</td><td>W2_H1 s38; W8 s68</td><td>Directly targets the rising learning curve. Logistic and forest already refit on all rows.</td><td>~10 min</td></tr>
+      <tr><td>4</td><td>Ensemble: compare the current blend vs logistic + forest only vs a fixed forest-heavier blend; no weight optimisation</td><td>W2_H1 s4, s7; W8 s74</td><td>Reuses saved predictions, no retraining.</td><td>&lt; 1 min</td></tr>
+      <tr><td>5</td><td>Prune conservatively: drop ticket + interaction features (≈0 or negative as groups) and cap distance features at one</td><td>W1 s28–34</td><td>Group results support it. Note that <code>tix_n_concerts</code> helps the forest but hurts the MLP, so retrain and check per model.</td><td>~25–30 min</td></tr>
+      <tr><td>6</td><td>Slightly stronger regularisation: forest depth 3 vs 4, leaf 5/10 vs 2; logistic C 1 / 10 vs 74</td><td>W2_H1 s38; W5 s19</td><td>Tuning showed depth 4 beat deeper trees, so there's room to test shallower. Risk: underfitting.</td><td>~10 min</td></tr>
+      <tr><td>7</td><td>MLP: one stronger-decay or dropout-0.2 variant; judge across 3 fixed seeds, never the luckiest seed</td><td>W8 s67–74</td><td>The MLP has the largest gap (0.009), so this targets the right model.</td><td>~10 min</td></tr>
+      <tr><td>+</td><td><i>Claude's addition:</i> time-shifted extra training rows (predict 2013-14 from data up to 2012-13 for the 3,119 unlabelled history accounts)</td><td>W2_H1 s38 (more data supports more complexity)</td><td>The learning curve says more data would help most. But donation and ID features can't be time-shifted, and an older season may behave differently. Treat it as an experiment checked against the current CV, not a default.</td><td>~30 min</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><b>Final two submissions (GPT-6 Astra and Claude agree):</b> mark <b>average_A_B_C</b> (best CV, lowest fold SD, best hard-group score) and <b>forest</b> (best public score) as final. To keep the average AUROC above 0.97, the blend needs a private score above 0.9666 and the forest above 0.9632. Use at most 2–3 more leaderboard uploads, each for a challenger chosen in advance. Don't tune weights to the public score.</div>
 </section>
 
 <section id="v3">
@@ -280,6 +317,26 @@ function renderResults(){
   Plotly.react('c-vc', tr, Object.assign(base({showlegend:true}), {xaxis:{...base().xaxis, title:{text:'validation AUROC',font:{color:css('--text-2'),size:12}}, range:[0.92,1]}, yaxis:ax('train AUROC',[0.92,1])}), cfg);
 }
 
+function renderContrib(){
+  if (!D.imp_group) return;
+  const c = S(), mods = [['forest','random forest',c[2]],['mlp_ensemble','MLP ensemble',c[6]],['average_A_B_C','A+B+C average',c[0]]];
+  const ax = t => ({...base().yaxis, title:{text:t,font:{color:css('--text-2'),size:12}}});
+  Plotly.react('c-impg', mods.map(([k,n,col])=>({type:'bar', name:n, x:D.imp_group.x, y:D.imp_group[k], marker:M(col),
+    hovertemplate:`${n}<br>%{x}: AUROC −%{y:.4f}<extra></extra>`})),
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:ax('AUROC drop when shuffled'), xaxis:{...base().xaxis, type:'category'}}), cfg);
+  Plotly.react('c-impf', mods.map(([k,n,col])=>({type:'bar', orientation:'h', name:n, y:[...D.imp_feat.x].reverse(), x:[...D.imp_feat[k]].reverse(), marker:M(col),
+    hovertemplate:`${n}<br>%{y}: AUROC −%{x:.4f}<extra></extra>`})),
+    Object.assign(base({barmode:'group', showlegend:true, bargap:.2}), {xaxis:{...base().xaxis, title:{text:'AUROC drop when shuffled',font:{color:css('--text-2'),size:12}}}, yaxis:{...base().yaxis, type:'category'}}), cfg);
+  Plotly.react('c-gap', [
+    {type:'bar', name:'train', x:D.gap.x, y:D.gap.train, marker:M(c[1]), hovertemplate:'%{x} train %{y:.4f}<extra></extra>'},
+    {type:'bar', name:'validation', x:D.gap.x, y:D.gap.val, marker:M(c[0]), hovertemplate:'%{x} validation %{y:.4f}<extra></extra>'}],
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:{...ax('AUROC'), range:[0.97,0.995]}, xaxis:{...base().xaxis, type:'category'}}), cfg);
+  const lcm = [['logistic','logistic',c[3]], ...mods];
+  Plotly.react('c-lc', lcm.map(([k,n,col])=>({type:'scatter', mode:'lines+markers', name:n, x:D.lc.x, y:D.lc[k], line:{color:col,width:2}, marker:{size:8,color:col},
+    hovertemplate:`${n}<br>%{x}% of rows: %{y:.4f}<extra></extra>`})),
+    Object.assign(base({showlegend:true}), {xaxis:{...base().xaxis, ticksuffix:'%', title:{text:'share of fold training rows',font:{color:css('--text-2'),size:12}}}, yaxis:{...ax('validation AUROC'), range:[0.94,0.99]}}), cfg);
+}
+
 function base(extra={}){
   const t = css('--text-2'), g = css('--grid');
   const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
@@ -330,8 +387,8 @@ function render(){
     Object.assign(base({showlegend:true, grid:{rows:2, columns:1, pattern:'independent'}}),
       {yaxis:{...base().yaxis, type:'log'}, yaxis2:{...base().yaxis, type:'log'}, xaxis2:{...base().xaxis}}), cfg);
 }
-render(); renderResults();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { render(); renderResults(); });
+render(); renderResults(); renderContrib();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { render(); renderResults(); renderContrib(); });
 </script>
 </body>
 </html>
