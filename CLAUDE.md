@@ -46,5 +46,8 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 - `independent/driver.py` relays a staged modelling conversation to an external model via OmniRoute and runs its scripts locally (no Claude design shared). Runs in `independent/runs/` (git-ignored). Comparison: `python3 independent/compare.py` → `independent/llm_comparison.html`.
 - Common-footing OOF AUROC: Claude pruned L+F 0.9818, Gemini 3.8 Flash (for Argon) 0.9773, GPT-6 Astra 0.9728 (nested CV; excluded ID cohort + donation timing). Submissions: `submissions/indep_*.csv`.
 
+## Blind tournament (2026-10-26)
+- `independent/tournament.py`: 3 OmniRoute personas (Gemini 3.8 Flash, GPT-6 Astra, Claude Opus 4.6), 2 critique rounds, 20% lockbox (seed 2026), anonymous packages in `final_analysis/` (git-ignored), zero-context votes. Result: votes 2–1 for GPT's package (#3); lockbox AUROCs 0.9914–0.9920, all within noise of each other and the reference (0.9911). Submissions `submissions/tournament_package_{1,2,3}.csv`.
+
 ## Deadline
 Due ~2026-10-28 (10 days from 2026-10-18).
