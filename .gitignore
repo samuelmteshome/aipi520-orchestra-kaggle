@@ -16,3 +16,7 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .DS_Store
+
+# Model outputs (regenerate with: python3 src/train.py)
+results/
+submissions/

@@ -38,7 +38,7 @@ def _numeric(X):
     return out
 
 
-def select(X, y, k=K, seed=0, report=False):
+def select(X, y, k=K, seed=0, report=False, keep=ALWAYS_KEEP):
     Xn = _numeric(X)
     # 1. null threshold
     miss = Xn.isna().mean()
@@ -63,7 +63,7 @@ def select(X, y, k=K, seed=0, report=False):
     rf = RandomForestClassifier(n_estimators=500, min_samples_leaf=5, n_jobs=-1, random_state=seed)
     rf.fit(Xf[cands], y)
     imp = pd.Series(rf.feature_importances_, index=cands).sort_values(ascending=False)
-    chosen = [c for c in ALWAYS_KEEP if c in X.columns]
+    chosen = [c for c in keep if c in X.columns]
     chosen += [c for c in imp.index if c not in chosen][: k - len(chosen)]
 
     if report:
