@@ -123,7 +123,8 @@ P["GPT"] = {
 # ---------------------------------------------------------------- Gemini (3.8 Flash substituted for Argon)
 gm = RUNS / "gemini_flash"
 final_dir = gm / "4_combine_final"
-gem = {"label": "Gemini 3.8 Flash (substituted for Gemini 4 Argon)", "requested": "gemini/gemini-3.8-flash",
+gem = {"label": "Gemini 3.8 Flash (substituted for Gemini 4 Argon)",
+       "requested": "gemini/gemini-3.8-flash (stage 1, API key) → antigravity/gemini-3.8-flash-tiered (stages 2–4, Google account)",
        "stages": stage_progress(gm), "process": process_stats(gm), "public": None}
 if (final_dir / "results.json").exists():
     r = json.loads((final_dir / "results.json").read_text())

@@ -27,3 +27,8 @@ RuntimeError: gateway failed 4 times
 [13:51:15] resuming at stage 2 from saved transcript (5 messages)
 [13:51:15] 2_tune: asking antigravity/gemini-3.8-flash-high (attempt 1)
 [13:51:15]   gateway error (attempt 1): {"error":{"message":"Model 'gemini-3.8-flash-high' is not available in the active live catalog for provider 'antigravity'.","type":"invalid_request_error","code":"bad_request"}}
+[13:51:45]   gateway error (attempt 2): {"error":{"message":"Model 'gemini-3.8-flash-high' is not available in the active live catalog for provider 'antigravity'.","type":"invalid_request_error","code":"bad_request"}}
+[13:52:45]   gateway error (attempt 3): {"error":{"message":"Model 'gemini-3.8-flash-high' is not available in the active live catalog for provider 'antigravity'.","type":"invalid_request_error","code":"bad_request"}}
+[13:54:15]   gateway error (attempt 4): {"error":{"message":"Model 'gemini-3.8-flash-high' is not available in the active live catalog for provider 'antigravity'.","type":"invalid_request_error","code":"bad_request"}}
+[13:55:21] resuming at stage 2 from saved transcript (5 messages)
+[13:55:21] 2_tune: asking antigravity/gemini-3.8-flash-tiered (attempt 1)
