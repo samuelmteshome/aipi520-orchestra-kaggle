@@ -23,3 +23,7 @@ RuntimeError: gateway failed 4 times
 [12:08:30]   gateway error (attempt 1): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1463,"retry_after":"2026-10-26T16:32:53.355Z","credentials_cooling":1}}
 [12:33:26]   gateway error (attempt 2): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T17:03:26.345Z","credentials_cooling":1}}
 [13:04:28]   gateway error (attempt 3): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T17:34:28.044Z","credentials_cooling":1}}
+[13:35:00]   gateway error (attempt 4): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T18:05:00.327Z","credentials_cooling":1}}
+[13:51:15] resuming at stage 2 from saved transcript (5 messages)
+[13:51:15] 2_tune: asking antigravity/gemini-3.8-flash-high (attempt 1)
+[13:51:15]   gateway error (attempt 1): {"error":{"message":"Model 'gemini-3.8-flash-high' is not available in the active live catalog for provider 'antigravity'.","type":"invalid_request_error","code":"bad_request"}}

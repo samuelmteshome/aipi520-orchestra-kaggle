@@ -153,10 +153,65 @@ def geo_features(acc, zips):
     return f
 
 
+# ---------------------------------------------------------------- attendance consistency (user idea, 2026-10-26)
+def longest_run(years):
+    best = run = 0
+    prev = None
+    for yr in sorted(years):
+        run = run + 1 if prev is not None and yr == prev + 1 else 1
+        best, prev = max(best, run), yr
+    return best
+
+
+def consistency_features(subs, tix, acc, asof):
+    """Reliable "goes to everything" patrons vs spontaneous ones.
+
+    Subscriptions: share of seasons attended since first subscribing, longest unbroken run, number of lapses,
+    share of seasons on a Full (every-concert) package, loyalty to one venue. Tickets: concerts per ticket
+    season and share of the ticket seasons (2010-14) with a purchase. Donations: account.csv has no per-season
+    giving, so regularity is approximated by gifts per year since the first gift (capped at 3).
+    """
+    s = subs[subs["year"] <= asof]
+    g = s.groupby("account.id")
+    years = g["year"].apply(set)
+    f = pd.DataFrame(index=years.index)
+    first, n = g["year"].min(), g["year"].nunique()
+    f["cons_sub_active_share"] = n / (asof - first + 1)                       # 1.0 = every season since joining
+    f["cons_sub_longest_run"] = years.map(longest_run)
+    f["cons_sub_lapses"] = years.map(lambda y: sum(1 for yr in y if yr - 1 not in y) - 1)   # breaks in the run
+    f["cons_sub_full_share"] = g["package_group"].apply(lambda p: p.eq("Full").mean())
+    f["cons_sub_venue_loyalty"] = g["location"].apply(lambda l: l.value_counts(normalize=True).iloc[0] if l.notna().any() else 0)
+
+    t = tix[tix["year"] <= asof]
+    tg = t.groupby("account.id")
+    tf = pd.DataFrame({
+        "cons_tix_concerts_per_season": tg.apply(lambda d: d[["year", "set"]].dropna().drop_duplicates().shape[0], include_groups=False)
+                                        / tg["year"].nunique(),
+        "cons_tix_season_share": tg["year"].nunique() / tix.loc[tix["year"] <= asof, "year"].nunique(),
+    })
+
+    a = acc.set_index("account.id")
+    first_gift = a["first.donated"].dt.year
+    yrs = (TARGET_YEAR - first_gift).clip(lower=1)
+    df = pd.DataFrame({"cons_don_per_year": (a["no.donations.lifetime"] / yrs).clip(upper=3).fillna(0)})
+    return f.join(tf, how="outer").join(df, how="outer")
+
+
+def heuristic_interactions(X):
+    """Three interactions picked from the 2x2 screen (2026-10-26)."""
+    last = X["sub_last_season"].eq(1)
+    return pd.DataFrame({
+        "hx_activevenue_x_donor": (X["sub_last_venue_active"].eq(1) & X["don_count"].gt(0)).astype(int),
+        "hx_last_x_singletix": (last & X["tix_n_purchases"].gt(0)).astype(int),
+        "hx_last_x_downsized": (last & X["sub_last_package"].astype(str).isin(["Quartet", "Trio", "CYO"])).astype(int),
+    }, index=X.index)
+
+
 # ---------------------------------------------------------------- assemble
 FEATURE_GROUPS = {
     "subscriptions": "sub_", "tickets": "tix_", "any_purchase": "any_", "donations": "don_",
     "donations_pre2014": "pre14_", "account_flags": ("has_",), "geography": "geo_", "id_cohort": "id_",
+    "consistency": "cons_", "heuristic_interactions": "hx_",
 }
 CATEGORICAL = ["sub_last_package", "sub_last_location"]
 
@@ -192,6 +247,11 @@ def build(d, ids, asof=TARGET_YEAR - 1):
     X["tix_ever"] = X["tix_n_purchases"].gt(0).astype(int)
     for c in CATEGORICAL:
         X[c] = X[c].fillna("none").astype("category")
+    cons = consistency_features(d["subscriptions"], d["tickets"], d["account"], asof).reindex(X.index).fillna(0)
+    if asof < TARGET_YEAR - 1:
+        cons = cons.drop(columns=["cons_don_per_year"])
+    X = X.join(cons)
+    X = X.join(heuristic_interactions(X))
     return X
 
 

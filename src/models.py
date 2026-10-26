@@ -128,7 +128,7 @@ class Logistic:
             # l1_ratio 1 = L1 (LASSO), 0 = L2 (ridge); sklearn >= 1.8 spelling of `penalty`
             ("lr", LogisticRegression(l1_ratio=1.0 if self.params["penalty"] == "l1" else 0.0, C=self.params["C"],
                                       class_weight=self.params["class_weight"], solver="saga",
-                                      max_iter=20000, tol=1e-3)),
+                                      max_iter=20000, tol=1e-3, random_state=0)),
         ]).fit(X, y)
         return self
 
