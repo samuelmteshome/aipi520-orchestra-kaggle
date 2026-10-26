@@ -1,0 +1,25 @@
+[11:47:35] 1_design_baseline: asking gemini/gemini-3.8-flash (attempt 1)
+[11:48:14]   gateway error (attempt 1): {"error":{"message":"[gemini/gemini-3.8-flash] [503]: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later. (reset after 24s)","retry_after":24,"reset_at":"2026-10-26T15:48:38.203Z"}}
+[11:50:47]   gateway error (attempt 2): {"error":{"message":"[gemini/gemini-3.8-flash] [503]: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later. (reset after 6s)","retry_after":6,"reset_at":"2026-10-26T15:50:53.758Z"}}
+[11:59:22]   reply from gemini-3.8-flash in 454s, usage {'prompt_tokens': 26242, 'completion_tokens': 8115, 'total_tokens': 34357, 'completion_tokens_details': {'reasoning_tokens': 2263}}
+[12:01:25] 1_design_baseline: exit 0, 2.0 min, recomputed AUROC {'hist_gradient_boosting': 0.96886, 'logistic_regression': 0.97478, 'random_forest': 0.9748}, issues []
+[12:01:25] 2_tune: asking gemini/gemini-3.8-flash (attempt 1)
+[12:02:18]   gateway error (attempt 1): {"error":{"message":"[gemini/gemini-3.8-flash] [503]: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later. (reset after 12s)","retry_after":12,"reset_at":"2026-10-26T16:02:30.107Z"}}
+[12:02:53]   gateway error (attempt 2): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T16:32:53.355Z","credentials_cooling":1}}
+[12:03:53]   gateway error (attempt 3): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1740,"retry_after":"2026-10-26T16:32:53.355Z","credentials_cooling":1}}
+[12:05:23]   gateway error (attempt 4): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1650,"retry_after":"2026-10-26T16:32:53.355Z","credentials_cooling":1}}
+Traceback (most recent call last):
+  File "/Users/st478/520 assignments/Kaggle/independent/driver.py", line 239, in <module>
+    main(a.name, a.model, a.eda, a.stages)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/st478/520 assignments/Kaggle/independent/driver.py", line 202, in main
+    reply, m = chat(model, messages, log)
+               ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/st478/520 assignments/Kaggle/independent/driver.py", line 101, in chat
+    raise RuntimeError("gateway failed 4 times")
+RuntimeError: gateway failed 4 times
+[12:08:30] resuming at stage 2 from saved transcript (5 messages)
+[12:08:30] 2_tune: asking gemini/gemini-3.8-flash (attempt 1)
+[12:08:30]   gateway error (attempt 1): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1463,"retry_after":"2026-10-26T16:32:53.355Z","credentials_cooling":1}}
+[12:33:26]   gateway error (attempt 2): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T17:03:26.345Z","credentials_cooling":1}}
+[13:04:28]   gateway error (attempt 3): {"error":{"message":"All credentials for model gemini-3.8-flash are cooling down","type":"rate_limit_error","code":"model_cooldown","model":"gemini-3.8-flash","reset_seconds":1800,"retry_after":"2026-10-26T17:34:28.044Z","credentials_cooling":1}}

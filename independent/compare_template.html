@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Model Comparison</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>/*__CSS__*/
+.llm{border-top:3px solid var(--s1)} .llm.GPT{border-top-color:var(--s3)} .llm.Gemini{border-top-color:var(--s7)}
+.big{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums}
+.ci{color:var(--text-2);font-size:13px}
+td.yes{color:var(--s6);font-weight:600} td.no{color:var(--muted)}
+.pend{color:var(--s4);font-weight:600}
+pre.sum{white-space:pre-wrap;font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text-2);margin:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Independent LLM modelling comparison</h1>
+<p class="sub">Three pipelines, each designed by a different model and run on the same data. Claude built its pipeline in this session. GPT-6 Astra and Gemini each designed theirs independently through OmniRoute, starting from their own earlier EDA and the task brief only. They never saw Claude's features, models or scores. Claude ran their scripts locally and reported the raw outcomes back without advice. Every final model is re-scored below with the same code, on the same 6,941 training accounts.</p>
+<div class="kpis" id="cards"></div>
+<nav>
+  <a href="#metrics">Common-footing metrics</a><a href="#stages">Stage progression</a><a href="#features">Features</a>
+  <a href="#agree">Prediction agreement</a><a href="#process">Process</a><a href="#lessons">Lessons</a><a href="#summaries">Their own summaries</a>
+</nav>
+
+<section id="metrics">
+  <h2>Common-footing metrics (final models)</h2>
+  <p class="sub">AUROC of each pipeline's final out-of-fold predictions, re-scored here with a 95% bootstrap interval (1,000 resamples of accounts). "Hard group" = the 6,596 accounts that did <i>not</i> subscribe in 2013-14 (50 positives). Δ vs Claude is a paired bootstrap on the same accounts.</p>
+  <div class="grid">
+    <div class="card wide"><h3>AUROC with 95% interval</h3><div class="chart" id="c-auc"></div></div>
+  </div>
+  <div class="tbl" id="t-metrics"></div>
+  <div class="callout warn"><b>The validation schemes differ, so the "honest" level differs too.</b> GPT-6 Astra used fully nested CV, where every tuning and pruning choice was made inside inner folds. Claude tuned once on one repeat and chose its pruning after seeing results, so its number is mildly optimistic. The Kaggle public score is the only check none of them saw.</div>
+</section>
+
+<section id="stages">
+  <h2>Stage progression</h2>
+  <p class="sub">Best independently recomputed AUROC at each stage: 1 = design + baseline, 2 = tuning, 3 = pruning, 4 = final combination. Claude's stages map to its tune-once run (2), pruning experiments (3) and pruned L+F blend (4); it had no comparable untuned baseline stage.</p>
+  <div class="grid"><div class="card wide"><div class="chart" id="c-stages"></div></div></div>
+</section>
+
+<section id="features">
+  <h2>What each model used</h2>
+  <p class="sub">Final feature sets grouped by type (pattern-matched from feature names). Hover a row in the detail table for exact names.</p>
+  <div class="tbl" id="t-cats"></div>
+  <div class="tbl" id="t-excl" style="margin-top:12px"></div>
+</section>
+
+<section id="agree">
+  <h2>Do the models agree on the test set?</h2>
+  <p class="sub">Spearman rank correlation of the three submissions' test predictions, and how many of each model's top-150 test accounts also appear in the other's top 150 (≈150 subscribers expected among 2,975).</p>
+  <div class="grid">
+    <div class="card"><h3>Rank correlation</h3><div class="chart" id="c-corr"></div></div>
+    <div class="card"><h3>Top-150 overlap</h3><div class="chart" id="c-top"></div></div>
+  </div>
+</section>
+
+<section id="process">
+  <h2>Process</h2>
+  <div class="tbl" id="t-proc"></div>
+</section>
+
+<section id="lessons">
+  <h2>Lessons from the three processes</h2>
+  <ol class="facts" id="lessons-list"></ol>
+</section>
+
+<section id="summaries">
+  <h2>Their own final summaries (verbatim)</h2>
+  <div class="grid">
+    <div class="card llm GPT"><h3>GPT-6 Astra</h3><pre class="sum" id="sum-GPT"></pre></div>
+    <div class="card llm Gemini"><h3>Gemini</h3><pre class="sum" id="sum-Gemini"></pre></div>
+  </div>
+</section>
+</main>
+<script>
+const D = /*__DATA__*/null;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const KEYS = ['Claude','GPT','Gemini'], COL = {Claude:'--s1', GPT:'--s3', Gemini:'--s7'};
+const f4 = v => v==null ? '—' : v.toFixed(4);
+const esc = s => String(s ?? '').replace(/</g,'&lt;');
+function table(id, head, rows){ document.getElementById(id).innerHTML = `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.join('')}</tr>`).join('')}</tbody></table>`; }
+
+document.getElementById('cards').innerHTML = KEYS.map(k => { const p=D.P[k], m=p.metrics;
+  return `<div class="kpi llm ${k}"><div class="l">${esc(p.label)}</div><div class="big">${m?m.auroc.toFixed(4):'<span class="pend">pending</span>'}</div>
+  <div class="ci">${m?`95% CI ${m.ci_low.toFixed(3)}–${m.ci_high.toFixed(3)} · ${p.n_features} features`:''}</div>
+  <div class="l" style="margin-top:6px">${esc(p.final_model)}</div>
+  <div class="l">public LB: ${p.public?p.public.toFixed(5):'not uploaded'}</div></div>`; }).join('');
+
+table('t-metrics', ['Pipeline','AUROC','95% CI','Hard-group AUROC','Avg precision','Δ AUROC vs Claude (95% CI)','P(better than Claude)','Validation'],
+  KEYS.map(k => { const p=D.P[k], m=p.metrics, d=p.vs_claude;
+    return [`<td>${esc(p.label)}</td>`, `<td class="num">${m?f4(m.auroc):'—'}</td>`, `<td class="num">${m?m.ci_low.toFixed(4)+'–'+m.ci_high.toFixed(4):'—'}</td>`,
+      `<td class="num">${m?f4(m.hard_auroc):'—'}</td>`, `<td class="num">${m?m.avg_precision.toFixed(3):'—'}</td>`,
+      `<td class="num">${d?(d.diff>=0?'+':'')+d.diff.toFixed(4)+` (${d.lo.toFixed(4)} to ${d.hi.toFixed(4)})`:(k==='Claude'?'reference':'—')}</td>`,
+      `<td class="num">${d?(d.p_better*100).toFixed(0)+'%':'—'}</td>`, `<td>${esc(p.validation)}</td>`]; }));
+
+const cats = D.cats;
+table('t-cats', ['Feature type', ...KEYS.map(k=>D.P[k].label)],
+  cats.map(c => [`<td>${c}</td>`, ...KEYS.map(k => { const fs=(D.P[k].categories||{})[c]||[]; const done=D.P[k].metrics;
+    return done ? `<td class="${fs.length?'yes':'no'}" title="${esc(fs.join(', '))}">${fs.length?'✓ '+fs.length:'–'}</td>` : `<td class="no">pending</td>`; })]));
+table('t-excl', ['Pipeline','Excluded on purpose / notes'], KEYS.map(k => [`<td>${esc(D.P[k].label)}</td>`, `<td>${esc(D.P[k].excluded)}</td>`]));
+
+table('t-proc', ['Pipeline','Requested route','Gateway-reported serving model','LLM calls','Script runs','Failed runs (fixed by the model)','Rate-limit errors','Tokens'],
+  KEYS.map(k => { const p=D.P[k], s=p.process||{};
+    return [`<td>${esc(p.label)}</td>`, `<td><code>${esc(p.requested)}</code></td>`, `<td><code>${esc((s.served||[]).join(', ')||'—')}</code></td>`,
+      `<td class="num">${s.llm_calls??'—'}</td>`, `<td class="num">${s.script_runs??'—'}</td>`, `<td class="num">${s.failed_runs??'—'}</td>`,
+      `<td class="num">${s.rate_limit_errors??'—'}</td>`, `<td class="num">${s.tokens?s.tokens.toLocaleString():'—'}</td>`]; }));
+
+document.getElementById('lessons-list').innerHTML = (D.lessons||[]).map(l=>`<li>${l}</li>`).join('') || '<li>Pending.</li>';
+for (const k of ['GPT','Gemini']) document.getElementById('sum-'+k).textContent = D.summaries[k] || 'Pending.';
+
+function base(extra={}){ const t=css('--text-2'), g=css('--grid');
+  const ax=()=>({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
+  return Object.assign({margin:{l:8,r:12,t:8,b:8}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:t,size:12},
+    xaxis:ax(), yaxis:ax(), showlegend:false, hoverlabel:{bgcolor:css('--surface'), bordercolor:css('--border'), font:{color:css('--text')}},
+    legend:{orientation:'h', y:1.12, x:0, font:{color:t}}}, extra); }
+const cfg={displayModeBar:false, responsive:true};
+function render(){
+  const done = KEYS.filter(k=>D.P[k].metrics);
+  Plotly.react('c-auc', [{type:'scatter', mode:'markers', y:done.map(k=>D.P[k].label), x:done.map(k=>D.P[k].metrics.auroc),
+    error_x:{type:'data', symmetric:false, array:done.map(k=>D.P[k].metrics.ci_high-D.P[k].metrics.auroc), arrayminus:done.map(k=>D.P[k].metrics.auroc-D.P[k].metrics.ci_low), color:css('--muted'), thickness:2, width:6},
+    marker:{size:14, color:done.map(k=>css(COL[k])), line:{color:css('--surface'),width:2}},
+    hovertemplate:'%{y}<br>AUROC %{x:.4f}<extra></extra>'}],
+    Object.assign(base(), {xaxis:{...base().xaxis, title:{text:'out-of-fold AUROC (95% bootstrap CI)',font:{color:css('--text-2'),size:12}}}, yaxis:{...base().yaxis, type:'category'}, height:260}), cfg);
+  Plotly.react('c-stages', KEYS.map(k=>{ const s=D.P[k].stages||{}; const xs=['1','2','3','4'].filter(i=>s[i]!=null);
+    return {type:'scatter', mode:'lines+markers', name:D.P[k].label, x:xs.map(i=>'stage '+i), y:xs.map(i=>s[i]),
+      line:{color:css(COL[k]),width:2}, marker:{size:9,color:css(COL[k]),line:{color:css('--surface'),width:2}}, hovertemplate:`${D.P[k].label}<br>%{x}: %{y:.4f}<extra></extra>`}; }),
+    Object.assign(base({showlegend:true}), {xaxis:{...base().xaxis, type:'category', categoryorder:'array', categoryarray:['stage 1','stage 2','stage 3','stage 4']}, yaxis:{...base().yaxis, title:{text:'best recomputed AUROC',font:{color:css('--text-2'),size:12}}}}), cfg);
+  const n=D.corr.names.map(k=>D.P[k].label.split(' (')[0]);
+  const hm=(id,z,fmt,zmin,zmax)=>Plotly.react(id,[{type:'heatmap', x:n, y:n, z, zmin, zmax, colorscale:[[0,css('--seq-lo')],[1,css('--seq-hi')]], showscale:false, xgap:2, ygap:2,
+    text:z.map(r=>r.map(fmt)), texttemplate:'%{text}', textfont:{color:css('--text')}, hovertemplate:'%{y} vs %{x}: %{text}<extra></extra>'}],
+    Object.assign(base(), {yaxis:{...base().yaxis, autorange:'reversed'}}), cfg);
+  hm('c-corr', D.corr.m, v=>v.toFixed(3), 0.7, 1);
+  hm('c-top', D.corr.top150, v=>String(v), 80, 150);
+}
+render();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+</script>
+</body>
+</html>

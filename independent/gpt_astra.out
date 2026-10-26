@@ -1,0 +1,25 @@
+[11:46:08] 1_design_baseline: asking cx/gpt-6-astra-high (attempt 1)
+[11:52:21]   reply from gpt-6-astra-high in 373s, usage {'prompt_tokens': 21526, 'completion_tokens': 12498, 'total_tokens': 34024, 'prompt_tokens_details': {'cached_tokens': 21376}, 'completion_tokens_details': {'reasoning_tokens': 2579}}
+[11:54:07] 1_design_baseline: exit 1, 1.8 min, recomputed AUROC {}, issues ['results.json missing']
+[11:54:07] 1_design_baseline: asking cx/gpt-6-astra-high (attempt 2)
+[11:56:41]   reply from gpt-6-astra-high in 154s, usage {'prompt_tokens': 31475, 'completion_tokens': 9950, 'total_tokens': 41425, 'prompt_tokens_details': {'cached_tokens': 21376}, 'completion_tokens_details': {'reasoning_tokens': 122}}
+[12:07:49] 1_design_baseline: exit 0, 11.1 min, recomputed AUROC {'equal_probability_blend': 0.95696, 'extra_trees': 0.94604, 'hist_gradient_boosting': 0.95451, 'logistic': 0.93373}, issues []
+[12:07:49] 2_tune: asking cx/gpt-6-astra-high (attempt 1)
+[12:10:16]   reply from gpt-6-astra-high in 148s, usage {'prompt_tokens': 42751, 'completion_tokens': 6504, 'total_tokens': 49255, 'prompt_tokens_details': {'cached_tokens': 31360}, 'completion_tokens_details': {'reasoning_tokens': 473}}
+[12:10:20] 2_tune: exit 1, 0.1 min, recomputed AUROC {}, issues ['results.json missing']
+[12:10:20] 2_tune: asking cx/gpt-6-astra-high (attempt 2)
+[12:11:59]   reply from gpt-6-astra-high in 99s, usage {'prompt_tokens': 49051, 'completion_tokens': 6540, 'total_tokens': 55591, 'prompt_tokens_details': {'cached_tokens': 42624}, 'completion_tokens_details': {'reasoning_tokens': 54}}
+[12:18:21] 2_tune: exit 0, 6.4 min, recomputed AUROC {'baseline_equal_probability_blend': 0.95696, 'baseline_extra_trees': 0.94604, 'baseline_hist_gradient_boosting': 0.95451, 'baseline_logistic': 0.93373, 'nested_tuned_equal_blend': 0.95979, 'nested_tuned_hist_gradient_boosting': 0.95249, 'nested_tuned_logistic': 0.95849}, issues []
+[12:18:21] 3_prune: asking cx/gpt-6-astra-high (attempt 1)
+[12:20:59]   reply from gpt-6-astra-high in 158s, usage {'prompt_tokens': 58972, 'completion_tokens': 7278, 'total_tokens': 66250, 'prompt_tokens_details': {'cached_tokens': 48896}, 'completion_tokens_details': {'reasoning_tokens': 516}}
+[12:21:02] 3_prune: exit 1, 0.1 min, recomputed AUROC {}, issues ['results.json missing']
+[12:21:02] 3_prune: asking cx/gpt-6-astra-high (attempt 2)
+[12:22:31]   reply from gpt-6-astra-high in 88s, usage {'prompt_tokens': 65940, 'completion_tokens': 6668, 'total_tokens': 72608, 'prompt_tokens_details': {'cached_tokens': 58752}}
+[12:28:50] 3_prune: exit 0, 6.3 min, recomputed AUROC {'pruned_equal_blend': 0.96466, 'pruned_hgb': 0.96857, 'pruned_logistic': 0.95803, 'unpruned_equal_blend': 0.95979, 'unpruned_hgb': 0.95249, 'unpruned_logistic': 0.95849}, issues []
+[12:28:50] 4_combine_final: asking cx/gpt-6-astra-high (attempt 1)
+[12:30:33]   reply from gpt-6-astra-high in 103s, usage {'prompt_tokens': 115203, 'completion_tokens': 4932, 'total_tokens': 120135, 'estimated': True}
+[12:30:33] 4_combine_final: asking cx/gpt-6-astra-high (attempt 2)
+[12:31:46]   reply from gpt-6-astra-high in 73s, usage {'prompt_tokens': 79724, 'completion_tokens': 4974, 'total_tokens': 84698, 'prompt_tokens_details': {'cached_tokens': 75392}, 'completion_tokens_details': {'reasoning_tokens': 31}}
+[12:36:22] 4_combine_final: exit 0, 4.6 min, recomputed AUROC {'final_compact_hgb': 0.9728, 'stage3_pruned_hgb_reference': 0.96857}, issues []
+[12:36:45]   reply from gpt-6-astra-high in 23s, usage {'prompt_tokens': 85931, 'completion_tokens': 551, 'total_tokens': 86482, 'prompt_tokens_details': {'cached_tokens': 79488}}
+[12:36:45] done; requested cx/gpt-6-astra-high, gateway-reported serving models ['gpt-6-astra-high']
