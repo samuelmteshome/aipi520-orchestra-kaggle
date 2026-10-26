@@ -23,3 +23,6 @@ submissions/
 
 # Independent model runs (transcripts, outputs, data copies)
 independent/runs/
+
+# AI-generated tournament packages (kept out of the graded repo; share deliberately)
+final_analysis/
