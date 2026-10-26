@@ -94,6 +94,17 @@ R["don_hist"] = {"raw": X["don_lifetime"].clip(upper=20000).tolist(), "log": np.
 rf = ROOT / "presentation" / "review_findings.json"
 R["findings"] = json.loads(rf.read_text()) if rf.exists() else []
 
+# ---- model results (after src/train.py has run)
+cvp = ROOT / "results/cv_summary.json"
+if cvp.exists():
+    cv = json.loads(cvp.read_text())
+    R["results"] = cv["summary"]
+    R["best_params"] = cv["best_params"]
+    R["run_minutes"] = cv["minutes"]
+    tu = pd.read_csv(ROOT / "results/tuning.csv")
+    R["tuning"] = {m: {"val": d["val_auroc"].round(4).tolist(), "train": d["train_auroc"].round(4).tolist(),
+                       "cfg": d["config"].tolist()} for m, d in tu.groupby("model")}
+
 css = re.search(r"<style>(.*?)</style>", (ROOT / "eda/report_template.html").read_text(), re.S).group(1)
 html = (ROOT / "presentation/template.html").read_text().replace("/*__CSS__*/", css).replace("/*__DATA__*/null", json.dumps(R))
 (ROOT / "presentation/data_review.html").write_text(html)

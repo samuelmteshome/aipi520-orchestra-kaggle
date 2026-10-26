@@ -37,7 +37,7 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 - `build(d, ids, asof)` supports time-shifted builds; it drops donation/ID groups when `asof < 2013`.
 - `src/select_features.py`: `select(X, y)` → 25 features (drop >50% missing → mutual-info filter + |Spearman|≥0.95 dedup → RF importance), ID-cohort features always kept; call inside each CV training fold.
 - Student decisions (2026-10-25): include ID-cohort features; cap at 25 features; add a PyTorch MLP ensemble (CPU is ~3× faster than MPS here). Ground modelling choices in AIPI 520 lectures (OneDrive `AIPI 520/Actual Lectures/*.pptx`; W1 feature selection, W2 CV/leakage, W3 regularisation, W8 NNs).
-- Review deck: `python3 presentation/build.py` → `presentation/data_review.html`. Models await the student's approval of the decisions in §7.
+- Review deck: `python3 presentation/build.py` → `presentation/data_review.html`. Models: `python3 src/train.py` (tune-once, 5×5 CV, ~22 min) → `results/` + `submissions/{logistic,forest,mlp_ensemble,average_A_B_C}.csv`. Run of 2026-10-26: pooled OOF AUROC logistic 0.9821, forest 0.9801, MLP ensemble 0.9797, A+B+C average 0.9825; without ID features −0.006 to −0.011. Which file to submit is the student's call.
 
 ## Deadline
 Due ~2026-10-28 (10 days from 2026-10-18).

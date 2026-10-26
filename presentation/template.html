@@ -16,13 +16,33 @@
 </head>
 <body>
 <main>
-<h1>Pre-modelling review · v3</h1>
+<h1>Model review · results</h1>
 <p class="sub">Your heuristics tested against the training data, the cleaning applied, feature skew and signal, and three candidate models with tuning and validation plans. <b>Nothing has been trained yet.</b> Approve or change the decisions at the end, then the models get run.</p>
 <div class="kpis" id="kpis"></div>
 <nav>
   <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
-  <a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+  <a href="#results">Results</a><a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
 </nav>
+
+<section id="results">
+  <h2>Results · tune-once run (25 folds)</h2>
+  <p class="sub" id="res-sub"></p>
+  <div class="kpis" id="res-kpis"></div>
+  <div class="grid">
+    <div class="card wide"><h3>AUROC by model</h3><p class="cap">Pooled out-of-fold AUROC (what one Kaggle score measures) vs AUROC on the hard group: accounts that did <i>not</i> subscribe in 2013-14. Hover for mean fold AUROC ± SD.</p><div class="chart tall" id="c-res"></div></div>
+    <div class="card"><h3>ID-cohort ablation</h3><p class="cap">Pooled OOF AUROC with vs without the two ID-cohort features.</p><div class="chart" id="c-abl"></div></div>
+    <div class="card"><h3>Validation curves: train vs validation AUROC per tuned config</h3><p class="cap">Each dot is one setting from the random search (repeat 0). Distance above the diagonal = overfitting (W2_H1 s37).</p><div class="chart" id="c-vc"></div></div>
+  </div>
+  <div class="tbl" id="t-res"></div>
+  <div class="callout warn"><b>How to read this.</b>
+    <ol style="margin:6px 0 0 18px;padding:0">
+      <li>All three model families clear the 0.97 target in CV and beat your heuristic (0.944) by about 0.04. The largest gains are on the hard group (0.66 → 0.89–0.90).</li>
+      <li>The A+B+C average scores highest (pooled 0.9825, hard group 0.905), but only 0.0004 above logistic regression alone. That's well inside the fold SD (~0.005), so the two are effectively tied.</li>
+      <li>Forest and MLP lose ~0.002–0.003 between mean-fold and pooled AUROC because their probability scales shift between folds. Logistic regression is the most consistent.</li>
+      <li>Without the ID features, every model drops 0.006–0.011 pooled, and the hard group drops most (−0.04 to −0.07).</li>
+      <li>These scores are slightly optimistic because tuning used repeat 0, which is also one of the 25 scored folds ("tune once", as approved). The public leaderboard is the first truly unseen check.</li>
+    </ol></div>
+</section>
 
 <section id="v3">
   <h2>v3 · Delegated modelling proposal, verified</h2>
@@ -220,6 +240,46 @@ table('t-sel', D.sel, [['feature','Feature'],['rf','RF importance'],['mi','Mutua
 document.getElementById('sel-drop').innerHTML = '<b>Over 50% missing:</b> ' + D.sel_dropped_missing.map(f=>`<code>${f}</code>`).join(' ') + '<br><b>Near-duplicate of a stronger feature:</b> ' + D.sel_dropped_dup.map(f=>`<code>${f}</code>`).join(' · ');
 const groups = {};
 D.table.forEach(r => (groups[r.group] = groups[r.group] || []).push(r.feature));
+if (D.results) {
+  const R = D.results, main = R.filter(r=>!r.model.includes('no ID'));
+  document.getElementById('res-sub').textContent = `Run took ${D.run_minutes} min on the M2 CPU. Best settings: logistic ${JSON.stringify(D.best_params.logistic)}; forest ${JSON.stringify(D.best_params.forest)}; MLP members ${JSON.stringify(D.best_params.mlp_members)}.`;
+  const best = main.reduce((a,b)=>b.pooled_oof_auroc>a.pooled_oof_auroc?b:a);
+  const lr = main.find(r=>r.model==='logistic');
+  document.getElementById('res-kpis').innerHTML = [
+    [best.pooled_oof_auroc.toFixed(4), 'best pooled OOF AUROC (' + best.model + ')'],
+    [lr.pooled_oof_auroc.toFixed(4), 'logistic regression alone'],
+    ['0.9437', 'your heuristic baseline'],
+    [best.hard_group_auroc.toFixed(3), 'hard-group AUROC (best)'],
+  ].map(([v,l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  table('t-res', R.map(r=>({...r, mean_fold:`${r.mean_fold_auroc.toFixed(4)} ± ${r.sd_fold_auroc.toFixed(4)}`,
+    pooled:r.pooled_oof_auroc.toFixed(4), hard:r.hard_group_auroc.toFixed(4), ap:r.avg_precision.toFixed(3)})),
+    [['model','Model'],['mean_fold','Mean fold AUROC ± SD'],['pooled','Pooled OOF AUROC'],['hard','Hard-group AUROC'],['ap','Avg precision']]);
+}
+function renderResults(){
+  if (!D.results) return;
+  const c = S(), R = D.results.filter(r=>!r.model.includes('no ID') && r.model!=='zero_rule');
+  const names = R.map(r=>r.model);
+  const ax = (t,range) => ({...base().yaxis, title:{text:t,font:{color:css('--text-2'),size:12}}, range});
+  Plotly.react('c-res', [
+    {type:'bar', name:'pooled OOF AUROC', x:names, y:R.map(r=>r.pooled_oof_auroc), marker:M(c[0]),
+     customdata:R.map(r=>[r.mean_fold_auroc,r.sd_fold_auroc]), text:R.map(r=>r.pooled_oof_auroc.toFixed(4)), textposition:'outside', cliponaxis:false,
+     textfont:{color:css('--text-2'),size:10}, hovertemplate:'%{x}<br>pooled %{y:.4f}<br>mean fold %{customdata[0]:.4f} ± %{customdata[1]:.4f}<extra></extra>'},
+    {type:'bar', name:'hard-group AUROC', x:names, y:R.map(r=>r.hard_group_auroc), marker:M(c[1]),
+     text:R.map(r=>r.hard_group_auroc.toFixed(3)), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:10},
+     hovertemplate:'%{x}<br>hard group %{y:.4f}<extra></extra>'}],
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:ax('AUROC',[0.6,1.0]), xaxis:{...base().xaxis, type:'category'}}), cfg);
+  const fam = ['logistic','forest','mlp_ensemble'];
+  const abl = fam.map(f => [D.results.find(r=>r.model===f), D.results.find(r=>r.model.startsWith(f+' (no ID'))]);
+  Plotly.react('c-abl', [
+    {type:'bar', name:'with ID', x:fam, y:abl.map(a=>a[0].pooled_oof_auroc), marker:M(c[0]), hovertemplate:'%{x} with ID: %{y:.4f}<extra></extra>'},
+    {type:'bar', name:'without ID', x:fam, y:abl.map(a=>a[1].pooled_oof_auroc), marker:M(c[1]), hovertemplate:'%{x} without ID: %{y:.4f}<extra></extra>'}],
+    Object.assign(base({barmode:'group', showlegend:true}), {yaxis:ax('pooled OOF AUROC',[0.95,0.99]), xaxis:{...base().xaxis, type:'category'}}), cfg);
+  const tr = Object.entries(D.tuning).map(([m,d],i)=>({type:'scatter', mode:'markers', name:m, x:d.val, y:d.train, text:d.cfg,
+    marker:{size:9, color:c[i], line:{color:css('--surface'),width:1.5}}, hovertemplate:`${m}<br>val %{x:.4f} · train %{y:.4f}<br>%{text}<extra></extra>`}));
+  tr.push({type:'scatter', mode:'lines', x:[0.92,1], y:[0.92,1], line:{color:css('--muted'),dash:'dot',width:1}, hoverinfo:'skip', showlegend:false});
+  Plotly.react('c-vc', tr, Object.assign(base({showlegend:true}), {xaxis:{...base().xaxis, title:{text:'validation AUROC',font:{color:css('--text-2'),size:12}}, range:[0.92,1]}, yaxis:ax('train AUROC',[0.92,1])}), cfg);
+}
+
 function base(extra={}){
   const t = css('--text-2'), g = css('--grid');
   const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
@@ -270,8 +330,8 @@ function render(){
     Object.assign(base({showlegend:true, grid:{rows:2, columns:1, pattern:'independent'}}),
       {yaxis:{...base().yaxis, type:'log'}, yaxis2:{...base().yaxis, type:'log'}, xaxis2:{...base().xaxis}}), cfg);
 }
-render();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+render(); renderResults();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { render(); renderResults(); });
 </script>
 </body>
 </html>
