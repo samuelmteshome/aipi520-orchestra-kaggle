@@ -40,6 +40,7 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 - Review deck: `python3 presentation/build.py` → `presentation/data_review.html`. Models: `python3 src/train.py` (tune-once, 5×5 CV, ~22 min) → `results/` + `submissions/{logistic,forest,mlp_ensemble,average_A_B_C}.csv`. Run of 2026-10-26: pooled OOF AUROC logistic 0.9821, forest 0.9801, MLP ensemble 0.9797, A+B+C average 0.9825; without ID features −0.006 to −0.011. Which file to submit is the student's call. Public LB (2026-10-26): forest 0.97679, average 0.97338, mlp_ensemble 0.97153, logistic 0.97107. Final selection (up to 2) is the student's call.
 - `python3 src/analysis.py` → `results/analysis.json`: permutation importance (feature + group) for forest/MLP/logistic/average, RF impurity, logistic coefs, train-vs-val gaps, learning curve. History group dominates; tickets/interactions ≈ 0; learning curve still rising at 100%.
 - Generalisation strategy (GPT-6 Astra proposal, verified): deck §Generalisation strategy; experiments 2–7 await the student's choice.
+- `python3 src/experiments.py` (~12 min) → `results/experiments.json`, `submissions/exp_*.csv`. Run 2026-10-26: pruning (drop tix_/ix_ + 3 of 4 distance features) helps all models; best = pruned logistic + pruned forest rank-average, pooled OOF 0.9836 vs 0.9825 (17/25 folds better); MLP adds nothing to the blend; stronger regularisation neutral/worse. Gains are within fold noise.
 
 ## Deadline
 Due ~2026-10-28 (10 days from 2026-10-18).

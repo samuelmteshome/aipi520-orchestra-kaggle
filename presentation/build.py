@@ -121,6 +121,14 @@ if anp.exists():
     lc = pd.DataFrame(an["learning_curve"]).pivot(index="frac", columns="model", values="mean")
     R["lc"] = {"x": (lc.index * 100).round().astype(int).tolist(), **{m: lc[m].round(4).tolist() for m in lc.columns}}
 
+# ---- strategy experiments (after src/experiments.py)
+exp = ROOT / "results/experiments.json"
+if exp.exists():
+    ex = json.loads(exp.read_text())
+    R["exp_cmp"] = ex["comparisons"]
+    R["exp_summary"] = sorted(ex["summary"], key=lambda r: -r["pooled_oof_auroc"])
+    R["exp_minutes"] = ex["minutes"]
+
 css = re.search(r"<style>(.*?)</style>", (ROOT / "eda/report_template.html").read_text(), re.S).group(1)
 html = (ROOT / "presentation/template.html").read_text().replace("/*__CSS__*/", css).replace("/*__DATA__*/null", json.dumps(R))
 (ROOT / "presentation/data_review.html").write_text(html)

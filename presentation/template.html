@@ -21,8 +21,26 @@
 <div class="kpis" id="kpis"></div>
 <nav>
   <a href="#heur">Your heuristics</a><a href="#clean">Cleaning</a><a href="#skew">Skew &amp; signal</a>
-  <a href="#results">Results</a><a href="#contrib">Feature contributions</a><a href="#strategy">Generalisation strategy</a><a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
+  <a href="#experiments">Experiments</a><a href="#results">Results</a><a href="#contrib">Feature contributions</a><a href="#strategy">Generalisation strategy</a><a href="#v3">v3 proposal</a><a href="#v2">v2 changes</a><a href="#feat">25 features</a><a href="#models">Models</a><a href="#cv">CV &amp; ensemble</a><a href="#decide">Your decisions</a><a href="#review">Pipeline review</a>
 </nav>
+
+<section id="experiments">
+  <h2>Strategy experiments: actions 3–7 on the same 25 folds</h2>
+  <p class="sub" id="exp-sub"></p>
+  <div class="grid">
+    <div class="card wide"><h3>Change in pooled out-of-fold AUROC vs each variant's baseline</h3><p class="cap">Bar = Δ pooled AUROC (variant − baseline). Hover for Δ mean-fold ± SD of the 25 paired differences, how many of 25 folds improved, and the hard-group change. Any bar under ~0.001 is within noise.</p><div class="chart tall" id="c-exp"></div></div>
+  </div>
+  <div class="tbl" id="t-exp"></div>
+  <div class="callout"><b>What the experiments show</b>
+    <ol style="margin:6px 0 0 18px;padding:0">
+      <li><b>Pruning (action 5) is the only change that helps all three models.</b> Dropping the ticket, interaction and 3 of 4 distance features (25 → 17 per fold) gave the forest +0.0014 pooled (better in 17/25 folds, hard group +0.009) and logistic +0.0008 (hard group +0.005). The models are smaller and score slightly higher (Occam's razor, W2_H1 s4).</li>
+      <li><b>The best blend is pruned logistic + pruned forest:</b> pooled 0.9836 vs 0.9825 now, better in 17/25 folds, hard group +0.007. Adding the pruned MLP makes it slightly worse (+0.0008).</li>
+      <li><b>Dropping the MLP from the blend costs nothing</b> (L+F 0.9827 vs L+F+M 0.9825). The MLP adds compute without adding ranking power here, which fits W2_H1 s7.</li>
+      <li><b>Refitting the MLP on all rows (action 3)</b>: +0.0004, so it helps slightly. The MLP still trails logistic and forest.</li>
+      <li><b>Stronger regularisation (actions 6–7) doesn't help.</b> Logistic regression gives identical results for C = 1, 10 and 74. A depth-3 forest loses 0.001 pooled and 0.008 on the hard group. The 10× MLP weight decay is neutral. The tuned models are not over-regularised or under-regularised; overfitting was already mild.</li>
+      <li><b>Caveat:</b> every gain here is about the size of the fold-to-fold noise (SD of paired differences 0.001–0.003). Pruning is the most consistent signal, but no single change is a sure win on the private set.</li>
+    </ol></div>
+</section>
 
 <section id="results">
   <h2>Results · tune-once run (25 folds)</h2>
@@ -337,6 +355,22 @@ function renderContrib(){
     Object.assign(base({showlegend:true}), {xaxis:{...base().xaxis, ticksuffix:'%', title:{text:'share of fold training rows',font:{color:css('--text-2'),size:12}}}, yaxis:{...ax('validation AUROC'), range:[0.94,0.99]}}), cfg);
 }
 
+function renderExp(){
+  if (!D.exp_cmp) return;
+  const c=S(), R=[...D.exp_cmp].sort((a,b)=>a.delta_pooled-b.delta_pooled);
+  Plotly.react('c-exp', [{type:'bar', orientation:'h', y:R.map(r=>r.variant+'  vs '+r.baseline), x:R.map(r=>r.delta_pooled),
+    marker:{color:R.map(r=>r.delta_pooled>=0?c[0]:c[1]), line:{color:css('--surface'),width:1}},
+    customdata:R.map(r=>[r.delta_mean_fold,r.delta_sd,r.folds_better,r.delta_hard]),
+    text:R.map(r=>(r.delta_pooled>=0?'+':'')+r.delta_pooled.toFixed(4)), textposition:'outside', cliponaxis:false, textfont:{color:css('--text-2'),size:10},
+    hovertemplate:'%{y}<br>Δ pooled %{x:+.4f}<br>Δ mean fold %{customdata[0]:+.4f} ± %{customdata[1]:.4f}<br>better in %{customdata[2]}/25 folds<br>Δ hard group %{customdata[3]:+.4f}<extra></extra>'}],
+    Object.assign(base(), {xaxis:{...base().xaxis, title:{text:'Δ pooled OOF AUROC',font:{color:css('--text-2'),size:12}}, zeroline:true}, yaxis:{...base().yaxis, type:'category'}, margin:{l:8,r:50,t:8,b:8}}), cfg);
+}
+if (D.exp_summary) {
+  document.getElementById('exp-sub').textContent = `Each variant is compared with its own baseline fold by fold. Same folds, same per-fold feature selection; the baselines reproduce the earlier run exactly. Run time ${D.exp_minutes} min. Submission files: submissions/exp_*.csv.`;
+  table('t-exp', D.exp_summary.map(r=>({variant:r.variant, pooled:r.pooled_oof_auroc.toFixed(4), fold:r.mean_fold_auroc.toFixed(4), hard:r.hard_group_auroc.toFixed(4)})),
+    [['variant','Variant (sorted by pooled OOF AUROC)'],['pooled','Pooled OOF AUROC'],['fold','Mean fold AUROC'],['hard','Hard-group AUROC']]);
+}
+
 function base(extra={}){
   const t = css('--text-2'), g = css('--grid');
   const ax = () => ({gridcolor:g, linecolor:g, zerolinecolor:g, tickfont:{color:t,size:11}, title:{text:'',font:{color:t,size:12}}, automargin:true, fixedrange:true});
@@ -387,8 +421,8 @@ function render(){
     Object.assign(base({showlegend:true, grid:{rows:2, columns:1, pattern:'independent'}}),
       {yaxis:{...base().yaxis, type:'log'}, yaxis2:{...base().yaxis, type:'log'}, xaxis2:{...base().xaxis}}), cfg);
 }
-render(); renderResults(); renderContrib();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { render(); renderResults(); renderContrib(); });
+render(); renderResults(); renderContrib(); renderExp();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { render(); renderResults(); renderContrib(); renderExp(); });
 </script>
 </body>
 </html>
