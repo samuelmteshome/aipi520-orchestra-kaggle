@@ -176,13 +176,18 @@ class Net(nn.Module):
 
 
 class MLP:
-    """One network. Early stopping on AUROC of an inner 15% split of the training rows (W8 s68)."""
+    """One network. Early stopping on AUROC of an inner 15% split of the training rows (W8 s68).
+
+    refit_full=True (strategy action 3): after early stopping picks the number of epochs, train a fresh
+    network with the same seed on 100% of the training rows for that many epochs, so the final model
+    doesn't permanently lose the 15% used for stopping.
+    """
 
     def __init__(self, hidden=(32, 16), dropout=0.1, batch_norm=False, lr=1e-3, weight_decay=1e-3,
-                 batch_size=128, max_epochs=300, patience=25, seed=0):
+                 batch_size=128, max_epochs=300, patience=25, seed=0, refit_full=False):
         self.params = dict(hidden=tuple(hidden), dropout=dropout, batch_norm=batch_norm, lr=lr,
                            weight_decay=weight_decay, batch_size=batch_size, max_epochs=max_epochs, patience=patience)
-        self.seed = seed
+        self.seed, self.refit_full = seed, refit_full
 
     def fit(self, X, y):
         p, y = self.params, np.asarray(y)
@@ -213,7 +218,26 @@ class MLP:
                 if wait >= p["patience"]:
                     break
         self.net_.load_state_dict(best_state)
+        if self.refit_full:
+            self._train_fixed(X, y, self.best_epoch_)
         return self
+
+    def _train_fixed(self, X, y, epochs):
+        """Fresh network (same seed) trained on all rows for a fixed number of epochs."""
+        p = self.params
+        torch.manual_seed(self.seed)
+        self.prep_ = scaled_preprocessor(X).fit(X)
+        t = torch.tensor(self.prep_.transform(X), dtype=torch.float32)
+        y_t = torch.tensor(np.asarray(y), dtype=torch.float32)
+        self.net_ = Net(t.shape[1], p["hidden"], p["dropout"], p["batch_norm"])
+        opt = torch.optim.AdamW(self.net_.parameters(), lr=p["lr"], weight_decay=p["weight_decay"])
+        loss_fn = nn.BCEWithLogitsLoss()
+        for _ in range(epochs):
+            self.net_.train()
+            for idx in torch.randperm(len(t)).split(p["batch_size"]):
+                opt.zero_grad()
+                loss_fn(self.net_(t[idx]), y_t[idx]).backward()
+                opt.step()
 
     def predict_proba(self, X):
         self.net_.eval()
@@ -224,11 +248,12 @@ class MLP:
 class MLPEnsemble:
     """'Multiple and in layers': average the probabilities of several networks (configs x seeds)."""
 
-    def __init__(self, configs, seeds=(0, 1, 2)):
-        self.configs, self.seeds = configs, seeds
+    def __init__(self, configs, seeds=(0, 1, 2), refit_full=False):
+        self.configs, self.seeds, self.refit_full = configs, seeds, refit_full
 
     def fit(self, X, y):
-        self.members_ = [MLP(**cfg, seed=s).fit(X, y) for cfg in self.configs for s in self.seeds]
+        self.members_ = [MLP(**cfg, seed=s, refit_full=self.refit_full).fit(X, y)
+                         for cfg in self.configs for s in self.seeds]
         return self
 
     def predict_proba(self, X):
