@@ -49,5 +49,8 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 ## Blind tournament (2026-10-26)
 - `independent/tournament.py`: 3 OmniRoute personas (Gemini 3.8 Flash, GPT-6 Astra, Claude Opus 4.6), 2 critique rounds, 20% lockbox (seed 2026), anonymous packages in `final_analysis/` (git-ignored), zero-context votes. Result: votes 2–1 for GPT's package (#3); lockbox AUROCs 0.9914–0.9920, all within noise of each other and the reference (0.9911). Submissions `submissions/tournament_package_{1,2,3}.csv`.
 
+## Final model
+- `python3 src/final_model.py` (~1 min) → `results/final_model/submission.csv`: tournament Package 3 (reference pruned L+F + nested-CV additive spline logistic). Reproduces `submissions/tournament_package_3.csv` (public 0.97991) to Spearman 0.99999 (tiny thread-level float nondeterminism). Deps in `requirements.txt`.
+
 ## Deadline
 Kaggle closes ~2026-11-04 (extended one week, Canvas announcement 2026-10-20; Kaggle showed "8 days to go" on 2026-10-27). No Canvas assignment exists; submit via Kaggle + GitHub repo.
