@@ -36,7 +36,7 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 - `python3 src/clean.py` → cleaned parquet in `data/processed/`; `python3 src/features.py` → `features_{train,test}.parquet` + `feature_groups.json` (groups: sub_, tix_, any_, don_, pre14_, has_, geo_, id_).
 - `build(d, ids, asof)` supports time-shifted builds; it drops donation/ID groups when `asof < 2013`.
 - `src/select_features.py`: `select(X, y)` → 25 features (drop >50% missing → mutual-info filter + |Spearman|≥0.95 dedup → RF importance), ID-cohort features always kept; call inside each CV training fold.
-- Student decisions (2026-10-25): include ID-cohort features; cap at 25 features; add a PyTorch MLP ensemble (CPU is ~3× faster than MPS here). Ground modelling choices in AIPI 520 lectures (OneDrive `AIPI 520/Actual Lectures/*.pptx`; W1 feature selection, W2 CV/leakage, W3 regularisation, W8 NNs).
+- Student decisions (2026-10-25): include ID-cohort features; cap at 25 features; add a PyTorch MLP ensemble (CPU is ~3× faster than MPS here). Ground modelling choices in AIPI 520 lectures (OneDrive `AIPI 520/Actual Lectures/*.pptx`; W1 feature selection, W2 CV/leakage, W3 regularisation, W8 NNs, W9 ensembles).
 - Review deck: `python3 presentation/build.py` → `presentation/data_review.html`. Models: `python3 src/train.py` (tune-once, 5×5 CV, ~22 min) → `results/` + `submissions/{logistic,forest,mlp_ensemble,average_A_B_C}.csv`. Run of 2026-10-26: pooled OOF AUROC logistic 0.9821, forest 0.9801, MLP ensemble 0.9797, A+B+C average 0.9825; without ID features −0.006 to −0.011. Which file to submit is the student's call. Public LB (2026-10-26): forest 0.97679, average 0.97338, mlp_ensemble 0.97153, logistic 0.97107. Final selection (up to 2) is the student's call.
 - `python3 src/analysis.py` → `results/analysis.json`: permutation importance (feature + group) for forest/MLP/logistic/average, RF impurity, logistic coefs, train-vs-val gaps, learning curve. History group dominates; tickets/interactions ≈ 0; learning curve still rising at 100%.
 - Generalisation strategy (GPT-6 Astra proposal, verified): deck §Generalisation strategy; experiments 2–7 await the student's choice.
@@ -51,6 +51,10 @@ Predict P(subscribe to 2014-15 season) for each account in `for_students/test.cs
 
 ## Final model
 - `python3 src/final_model.py` (~1 min) → `results/final_model/submission.csv`: tournament Package 3 (reference pruned L+F + nested-CV additive spline logistic). Reproduces `submissions/tournament_package_3.csv` (public 0.97991) to Spearman 0.99999 (tiny thread-level float nondeterminism). Deps in `requirements.txt`.
+
+## Lecture 9 (ensembles) — academic context
+- W9.pptx (+ `AIPI_520_Week_9_Study_Guide.pdf`): ensembling combines models into a meta-model that generalises better; averaging keeps bias and cuts variance by ~1/N if outputs are near-independent (s14); aggregation = majority vote, simple or weighted average, same or different algorithms (s15); bagging = bootstrap samples → near-independent models (s20); random forest = bagged trees + feature subsampling, tune n_trees / sample size / % features / depth / min leaf (s21–22), RF feature importance (s24); boosting = sequential weak learners fixing earlier errors (s27), AdaBoost reweights misclassified points and uses a performance-weighted vote (s32–34), gradient boosting fits residuals and overfits fast unless depth is limited, a learning rate shrinks each tree and rows/columns are subsampled (s36–40); cost vs gain (Netflix Prize, s17–18, s43).
+- Final model uses bagging (RF), simple average (L+F ranks) and weighted average (0.5 × add-on); no boosting. Visual: `presentation/final_model_explainer.html`.
 
 ## Deadline
 Kaggle closes ~2026-11-04 (extended one week, Canvas announcement 2026-10-20; Kaggle showed "8 days to go" on 2026-10-27). No Canvas assignment exists; submit via Kaggle + GitHub repo.

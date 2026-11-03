@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Final Model Explained</title>
+<style>
+:root{color-scheme:light;--bg:#f6f5f2;--surface:#fcfcfb;--border:#e4e2dc;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;
+--blue:#2a78d6;--blue-bg:#e6f0fc;--orange:#eb6834;--orange-bg:#fdeee7;--aqua:#1baf7a;--aqua-bg:#e3f6ee;--violet:#4a3aa7;--violet-bg:#ecebf8;--grey-bg:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#121211;--surface:#1a1a19;--border:#2e2d2a;--text:#fff;--text-2:#c3c2b7;--muted:#8f8e86;
+--blue:#3987e5;--blue-bg:#16263b;--orange:#d95926;--orange-bg:#3a1f14;--aqua:#199e70;--aqua-bg:#112d23;--violet:#9085e9;--violet-bg:#221f3b;--grey-bg:#242422}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#121211;--surface:#1a1a19;--border:#2e2d2a;--text:#fff;--text-2:#c3c2b7;--muted:#8f8e86;
+--blue:#3987e5;--blue-bg:#16263b;--orange:#d95926;--orange-bg:#3a1f14;--aqua:#199e70;--aqua-bg:#112d23;--violet:#9085e9;--violet-bg:#221f3b;--grey-bg:#242422}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+main{max-width:1060px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:27px;margin:0 0 6px} h2{font-size:20px;margin:36px 0 8px} h3{font-size:15px;margin:0 0 4px}
+.sub{color:var(--text-2);margin:0 0 18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi .v{font-size:25px;font-weight:650;font-variant-numeric:tabular-nums}.kpi .l{color:var(--text-2);font-size:13px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;overflow-x:auto}
+svg text{font-family:inherit} .t{fill:var(--text)} .t2{fill:var(--text-2)}
+table{border-collapse:collapse;width:100%;font-size:14px} th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--text-2);font-weight:600} td.num{text-align:right;font-variant-numeric:tabular-nums}
+code{font:13px ui-monospace,Menlo,monospace}
+ol.steps{padding-left:22px} ol.steps li{margin:6px 0}
+.bars{display:grid;gap:8px} .bar{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr) 70px;gap:10px;align-items:center;font-size:14px}
+.track{height:14px;background:var(--grey-bg);border-radius:3px}.fill{height:14px;border-radius:0 4px 4px 0}
+.note{color:var(--muted);font-size:13px}
+.callout{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:0;padding:12px 16px;margin:14px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Your final model, explained</h1>
+<p class="sub">File <code>submissions/tournament_package_3.csv</code>, reproduced by <code>python3 src/final_model.py</code>. It won the blind 3-LLM tournament (Model_Package_3, designed by GPT-6 Astra) and is your best public leaderboard score.</p>
+<div class="kpis">
+  <div class="kpi"><div class="v">0.97991</div><div class="l">Kaggle public AUROC (best of all uploads)</div></div>
+  <div class="kpi"><div class="v">0.9853</div><div class="l">nested-CV AUROC, full training data</div></div>
+  <div class="kpi"><div class="v">0.9916</div><div class="l">lockbox AUROC (1,389 hidden accounts)</div></div>
+  <div class="kpi"><div class="v">3 models</div><div class="l">in one weighted ensemble</div></div>
+</div>
+
+<h2>1 · The picture</h2>
+<div class="card">
+<svg viewBox="0 0 1000 470" width="100%" role="img" aria-labelledby="dgT dgD">
+<title id="dgT">Final model pipeline</title>
+<desc id="dgD">Raw files feed features. Feature set A goes to a logistic regression and a random forest whose scores are converted to ranks and averaged into the reference score. Feature set B goes to a spline logistic regression. The final score is half reference plus half spline model.</desc>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+<g stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+<path d="M165 235 H205"/><path d="M365 150 H405"/><path d="M365 150 C385 150 385 255 405 255"/><path d="M365 370 H405"/>
+<path d="M585 150 H625"/><path d="M585 255 C605 255 605 165 625 165"/><path d="M785 158 C815 158 815 260 840 262"/><path d="M585 370 C700 370 760 300 840 275"/>
+</g>
+<rect x="10" y="185" width="155" height="100" rx="10" fill="var(--grey-bg)" stroke="var(--border)"/>
+<text x="87" y="225" text-anchor="middle" class="t" font-weight="600" font-size="15">Raw Kaggle files</text>
+<text x="87" y="247" text-anchor="middle" class="t2" font-size="12">subscriptions, tickets,</text><text x="87" y="263" text-anchor="middle" class="t2" font-size="12">donations, zip, account ID</text>
+<rect x="205" y="95" width="160" height="110" rx="10" fill="var(--blue-bg)" stroke="var(--blue)"/>
+<text x="285" y="128" text-anchor="middle" class="t" font-weight="600" font-size="15">Feature set A</text>
+<text x="285" y="150" text-anchor="middle" class="t2" font-size="11">chosen inside each fold:</text><text x="285" y="166" text-anchor="middle" class="t2" font-size="11">MI → de-dup → RF importance</text><text x="285" y="182" text-anchor="middle" class="t2" font-size="11">→ prune → 18 features</text>
+<rect x="205" y="315" width="160" height="110" rx="10" fill="var(--violet-bg)" stroke="var(--violet)"/>
+<text x="285" y="348" text-anchor="middle" class="t" font-weight="600" font-size="15">Feature set B</text>
+<text x="285" y="370" text-anchor="middle" class="t2" font-size="12">21 fixed features,</text><text x="285" y="386" text-anchor="middle" class="t2" font-size="12">5 bent with splines</text><text x="285" y="402" text-anchor="middle" class="t2" font-size="12">(knots at quartiles)</text>
+<rect x="405" y="110" width="180" height="80" rx="10" fill="var(--surface)" stroke="var(--blue)"/>
+<text x="495" y="143" text-anchor="middle" class="t" font-weight="600" font-size="14">Logistic regression</text><text x="495" y="163" text-anchor="middle" class="t2" font-size="12">L2, C = 74</text>
+<rect x="405" y="215" width="180" height="80" rx="10" fill="var(--surface)" stroke="var(--aqua)"/>
+<text x="495" y="245" text-anchor="middle" class="t" font-weight="600" font-size="14">Random forest</text><text x="495" y="264" text-anchor="middle" class="t2" font-size="11">500 trees · depth 4 · 40% feats</text><text x="495" y="280" text-anchor="middle" class="t2" font-size="12">= bagging (W9 s20–22)</text>
+<rect x="405" y="330" width="180" height="80" rx="10" fill="var(--surface)" stroke="var(--violet)"/>
+<text x="495" y="362" text-anchor="middle" class="t" font-weight="600" font-size="14">Spline logistic</text><text x="495" y="381" text-anchor="middle" class="t2" font-size="12">L2, C chosen in inner CV</text>
+<rect x="625" y="115" width="160" height="85" rx="10" fill="var(--blue-bg)" stroke="var(--blue)"/>
+<text x="705" y="146" text-anchor="middle" class="t" font-weight="600" font-size="14">Reference score</text><text x="705" y="166" text-anchor="middle" class="t2" font-size="12">ranks averaged 50/50</text><text x="705" y="182" text-anchor="middle" class="t2" font-size="12">(simple average, W9 s15)</text>
+<rect x="840" y="215" width="150" height="110" rx="10" fill="var(--orange-bg)" stroke="var(--orange)"/>
+<text x="915" y="248" text-anchor="middle" class="t" font-weight="600" font-size="15">Final score</text>
+<text x="915" y="270" text-anchor="middle" class="t2" font-size="12">0.5 × reference</text><text x="915" y="286" text-anchor="middle" class="t2" font-size="12">+ 0.5 × spline model</text><text x="915" y="304" text-anchor="middle" class="t2" font-size="12">(weighted avg, W9 s15)</text>
+<text x="500" y="30" text-anchor="middle" class="t2" font-size="13">Each model's raw scores are turned into 0–1 ranks against its own training scores before averaging, so different scales can be combined.</text>
+<text x="500" y="455" text-anchor="middle" class="t2" font-size="13">Weight 0.5 and C = 1 were picked by a fixed rule inside nested CV (5 outer × 3 inner folds), never by the leaderboard.</text>
+</svg>
+</div>
+
+<h2>2 · Step by step</h2>
+<ol class="steps">
+  <li><b>Build features from raw files</b>, using only seasons up to 2013-14 (the audit found 0 rows after the cutoff). One row per account-season; conflicting values in a season become "multiple".</li>
+  <li><b>Feature set A (reference):</b> inside each training fold, drop features over 50% missing, rank by mutual information, remove near-duplicates (|Spearman| ≥ 0.95), keep the top 25 by random-forest importance (the two account-ID features are always kept), then drop ticket, interaction and 3 of 4 distance features. That leaves 18 in the final fit.</li>
+  <li><b>Reference ensemble:</b> fit an L2 logistic regression and a random forest on set A. Convert each one's scores to ranks and average them.</li>
+  <li><b>Feature set B (add-on):</b> 21 fixed features, with 5 continuous ones bent by piecewise-linear splines (seasons since last subscription, seasons since any purchase, 2013 donations, lifetime donations, years since first gift). This lets a straight-line model capture effects like "recency matters a lot up to ~5 seasons, then flattens".</li>
+  <li><b>Add-on model:</b> L2 logistic regression on set B.</li>
+  <li><b>Combine:</b> final = (1 − w) × reference + w × add-on. A pre-set rule picks w ∈ {0, 0.25, 0.5} and C ∈ {0.1, 1, 10, 74} using the inner folds. The add-on is used only if it beats the reference by ≥ 0.0005; among near-ties it takes the smallest weight, then the smallest C. On the full data it picked <b>w = 0.5, C = 1</b>.</li>
+  <li><b>Refit on all 6,941 training accounts</b> and predict the 2,975 test accounts.</li>
+</ol>
+
+<h2>3 · How it maps to Lecture 9 (ensembles)</h2>
+<div class="card"><table>
+<thead><tr><th>W9 idea (slide)</th><th>Where it appears in your model</th></tr></thead>
+<tbody>
+<tr><td>Ensembling: combine models into a meta-model that generalises better; averaging keeps bias the same and lowers variance (s14)</td><td>Three models averaged into one score</td></tr>
+<tr><td>Aggregation function: "majority vote, simple average, weighted average"; "same algorithm or different" (s15)</td><td>Simple average inside the reference (logistic + forest), then a weighted average with the spline model; three different algorithms</td></tr>
+<tr><td>Bagging: bootstrap samples, near-independent models, averaged to cut variance (s20)</td><td>The random forest: 500 bootstrapped trees</td></tr>
+<tr><td>Random forest: majority vote / simple average of trees; tune depth, % of features, leaf size (s21–22)</td><td>Depth 4, 40% of features per split, min leaf 2</td></tr>
+<tr><td>RF feature importance (s24)</td><td>Used to pick feature set A</td></tr>
+<tr><td>Boosting, AdaBoost, gradient boosting (s27–40)</td><td><b>Not used</b> in the final model. That's the gap the next roundtable explores</td></tr>
+<tr><td>Ensembling costs compute and interpretability; weigh cost against gain (s17–18, s43)</td><td>The add-on gave +0.0006 to +0.0014 AUROC in nested CV. Small but consistent: it beat the reference in both runs, and the bootstrap interval excludes zero</td></tr>
+</tbody></table></div>
+<p class="callout">Why the averaging helps here: logistic regression and the forest make different mistakes (their test-set rank correlation is about 0.77), so averaging them cancels some errors. That's the lecture's "close to independent" condition (s20). When the MLP was added, its errors were too similar to the others', and it added nothing.</p>
+
+<h2>4 · How good is it, and is it overfit?</h2>
+<div class="card">
+<div class="bars" id="bars"></div>
+<p class="note">Lockbox and public sets are different samples. With only 66 and roughly 40–60 subscribers respectively, differences under about 0.01 are noise.</p>
+</div>
+<ul>
+  <li><b>Nested CV:</b> choices were made inside inner folds and scored on outer folds, so the CV number is close to honest. The CV-to-public drop was only −0.004, versus −0.007 on average for your earlier tune-once models.</li>
+  <li><b>Lockbox:</b> scored once, never seen during design. It landed above CV, the opposite of what overfitting does.</li>
+  <li><b>The model leans on the account-ID batch and donation snapshot:</b> removing them costs −0.010. This is the main risk to discuss in your write-up.</li>
+</ul>
+</main>
+<script>
+const rows=[["Reference only (L+F), nested CV, full data",0.9846,"--blue"],["Final model, nested CV, full data",0.9853,"--orange"],["Final model, lockbox (unseen)",0.9916,"--orange"],["Final model, Kaggle public",0.97991,"--orange"],["Your previous best (pruned L+F), public",0.97785,"--blue"]];
+const lo=0.97, hi=0.995;
+document.getElementById('bars').innerHTML=rows.map(([l,v,c])=>`<div class="bar"><div>${l}</div><div class="track"><div class="fill" style="width:${((v-lo)/(hi-lo)*100).toFixed(1)}%;background:var(${c})"></div></div><div style="text-align:right;font-variant-numeric:tabular-nums">${v.toFixed(4)}</div></div>`).join('')+`<div class="note">Axis runs from 0.970 to 0.995.</div>`;
+</script>
+</body>
+</html>
