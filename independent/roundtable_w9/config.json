@@ -1,4 +1,5 @@
 {
+  "_note": "Replace <repo> with the absolute path of this repository before running.",
   "name": "W9 ensemble roundtable (orchestra Kaggle)",
   "out_dir": "../runs/roundtable_w9",
   "goal": "The overriding goal is higher AUROC on UNSEEN accounts; treat any overfitting to training data, validation folds or leaderboard feedback as a defect.",
@@ -18,12 +19,12 @@
   "readme_extra": "Reference: the incumbent model scored lockbox AUROC 0.99155 (95% CI 0.984-0.997) and development nested-CV AUROC 0.9835 on the same lockbox split. The lockbox has 66 positives, so differences below about 0.01 are within noise. METRICS.json in each package was computed by the operator; lockbox scores were hidden from the competitors.",
   "execute": {
     "contract": "EXECUTION CONTRACT: the operator runs your script once. DATA_DIR train.csv EXCLUDES the hidden lockbox; DATA_DIR test.csv holds the lockbox IDs. Read os.environ['DATA_DIR']; write ONLY inside os.environ['OUT_DIR']. Baseline modules (clean, features, select_features, models, final_model) are importable after sys.path.insert(0, os.environ['BASELINE_SRC']); clean.py there reads DATA_DIR. Python 3.14, CPU only (8 cores), 25-minute limit; libraries: numpy, pandas 3, scipy, scikit-learn 1.9 (has RandomForest, ExtraTrees, AdaBoost, GradientBoosting, HistGradientBoosting, Bagging, Voting/Stacking), torch 2.13 CPU, pyarrow, threadpoolctl. No installs, network or subprocess. Set seeds. Required outputs in OUT_DIR: results.json {\"models\": {name: {\"cv_auroc\": float, \"notes\": str}}, \"best\": name, \"validation\": str}; oof_final.csv (account.id,pred) for EVERY train.csv account; submission.csv (ID,Predicted) for every test.csv ID; diagnostics.json (train vs CV AUROC, fold spread, member correlations, chosen weights).",
-    "env": {"DATA_DIR": "/Users/st478/520 assignments/Kaggle/independent/runs/tournament/data_dev",
-            "BASELINE_SRC": "/Users/st478/520 assignments/Kaggle/independent/runs/tournament/src_dev",
+    "env": {"DATA_DIR": "<repo>/independent/runs/tournament/data_dev",
+            "BASELINE_SRC": "<repo>/independent/runs/tournament/src_dev",
             "OMP_NUM_THREADS": "8"},
     "timeout_min": 25,
     "max_fixes": 2,
-    "score_cmd": "python3 '/Users/st478/520 assignments/Kaggle/independent/roundtable_w9/score_lockbox.py' '{out_dir}'",
+    "score_cmd": "python3 '<repo>/independent/roundtable_w9/score_lockbox.py' '{out_dir}'",
     "hidden_metrics": ["lockbox_auroc", "lockbox_ci95", "lockbox_hard_group_auroc", "lockbox_n"]
   }
 }
