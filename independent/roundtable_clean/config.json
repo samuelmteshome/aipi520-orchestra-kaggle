@@ -1,0 +1,52 @@
+{
+ "name": "Clean-slate roundtable (no prior strategy)",
+ "out_dir": "../runs/roundtable_clean",
+ "goal": "The overriding goal is higher AUROC on UNSEEN accounts; treat any overfitting to training data, validation folds or leaderboard feedback as a defect.",
+ "brief_files": [
+  "../context/kaggle_task.md",
+  "data.md",
+  "lectures.md"
+ ],
+ "task": "Design, from scratch, the most accurate model for this competition that generalises to unseen accounts, grounding choices in the course lectures (cite as W# sN). Cover cleaning, feature engineering, model choice (ensembles welcome), leakage-free selection/tuning and validation.",
+ "personas": {
+  "A": {
+   "name": "Gemini",
+   "route": "antigravity/gemini-3.8-flash-tiered"
+  },
+  "B": {
+   "name": "GPT",
+   "route": "cx/gpt-6-astra-high"
+  },
+  "C": {
+   "name": "Claude",
+   "route": "antigravity/claude-opus-4-6-thinking"
+  }
+ },
+ "rounds": 2,
+ "proposal_words": 1100,
+ "critique_words": 450,
+ "risk_focus": "overfitting, leakage, members that are too correlated to help, weights tuned on the scored folds",
+ "criteria": [
+  "generalisation_and_anti_overfitting",
+  "validation_performance_incl_lockbox",
+  "method_and_lecture_grounding"
+ ],
+ "final_instructions": "Finalise the ensemble architecture exactly: members, features, hyperparameters (fixed or tuned only in inner CV), aggregation rule, validation protocol and anti-overfitting measures.",
+ "readme_extra": "METRICS.json was computed by the operator; lockbox AUROC (1,389 accounts, 66 positives) was hidden from competitors. Differences below ~0.01 are noise.",
+ "execute": {
+  "contract": "EXECUTION CONTRACT: the operator runs your script once. DATA_DIR train.csv EXCLUDES the hidden lockbox; DATA_DIR test.csv holds the lockbox IDs. Read os.environ['DATA_DIR']; write ONLY inside os.environ['OUT_DIR']. Write all code yourself (no project modules are provided). Python 3.14, CPU only (8 cores), 25-minute limit; libraries: numpy, pandas 3, scipy, scikit-learn 1.9 (has RandomForest, ExtraTrees, AdaBoost, GradientBoosting, HistGradientBoosting, Bagging, Voting/Stacking), torch 2.13 CPU, pyarrow, threadpoolctl. No installs, network or subprocess. Set seeds. Required outputs in OUT_DIR: results.json {\"models\": {name: {\"cv_auroc\": float, \"notes\": str}}, \"best\": name, \"validation\": str}; oof_final.csv (account.id,pred) for EVERY train.csv account; submission.csv (ID,Predicted) for every test.csv ID; diagnostics.json (train vs CV AUROC, fold spread, member correlations, chosen weights).",
+  "env": {
+   "DATA_DIR": "/Users/st478/520 assignments/Kaggle/independent/runs/tournament/data_dev",
+   "OMP_NUM_THREADS": "8"
+  },
+  "timeout_min": 25,
+  "max_fixes": 2,
+  "score_cmd": "python3 '/Users/st478/520 assignments/Kaggle/independent/roundtable_w9/score_lockbox.py' '{out_dir}'",
+  "hidden_metrics": [
+   "lockbox_auroc",
+   "lockbox_ci95",
+   "lockbox_hard_group_auroc",
+   "lockbox_n"
+  ]
+ }
+}
