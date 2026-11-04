@@ -31,6 +31,7 @@ This exploratory data analysis (found in 'eda/folder') was used to select promis
   
 ## Engineered Feature Dictionary 
 'subscriptions.csv'
+
     Recent subscription
         [LR + RF]
             'sub_prev_season'- binary marker for if that individual subscriped during the 2012/13 season
@@ -57,11 +58,13 @@ This exploratory data analysis (found in 'eda/folder') was used to select promis
         sub_share_active_venue [LR and RF]: aggregate all their subscriptions that were at still-running venues.
  
 'subscriptions.csv' + 'tickets_all.csv'
+
     All-models
         any_seasons_since_last: seasons since they bought anything at all. identifies ticket-only patrons. Bent with a spline in [Sp].
         any_n_seasons: number of seasons where they bought anything.
 
 'account.csv'
+
     All models
          don_2013: dollars donated in  2013. Bent using spline in [Sp].
          don_count: # of lifetime donations.
@@ -71,15 +74,14 @@ This exploratory data analysis (found in 'eda/folder') was used to select promis
          don_years_since_first: years since their first gift. Bent using spline[Sp].
 
 
-'account.csv' + 'zipcodes.csv' 
-    location was cross referenced so billing zipcdoe and shipping address from account.csv was matched to zipcode from zipcode.csv to ensure that only 5 digits were extracted
-        All models
-        geo_km_nearest_venue [R, S]: distance in km from the billing zipcode centre to the nearest open venue (specifically SF, Berkeley, Palo Alto).
+'account.csv' + 'zipcodes.csv' : location was cross referenced so billing zipcdoe and shipping address from account.csv was matched to zipcode from zipcode.csv to ensure that only 5 digits were extracted
+            All models
+                geo_km_nearest_venue [R, S]: distance in km from the billing zipcode centre to the nearest open venue   (specifically SF, Berkeley, Palo Alto).
 
-        [LR + RF]
-        geo_zip_population: population of the billing zip.
-        geo_zip_wages_per_return: average wages per tax return in that zip, a neighbourhood income measure.
-        has_shipping_zip: binary if the account has a separate shipping address ( 1.4% fall in this cat).
+             [LR + RF]
+                 geo_zip_population: population of the billing zip.
+                 geo_zip_wages_per_return: average wages per tax return in that zip, a neighbourhood income measure.
+                 has_shipping_zip: binary if the account has a separate shipping address ( 1.4% fall in this cat).
 
 train.csv
     id_cohort_Lh: coded as 1 if the ID starts with 001i000000Lh, a batch of current subscribers.

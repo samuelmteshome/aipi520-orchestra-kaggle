@@ -5,4 +5,4 @@ scipy==1.18.0
 scikit-learn==1.9.0
 pyarrow==25.0.1
 threadpoolctl==3.6.0
-torch==2.13.0        # only for the MLP experiments (src/models.py)
+# torch==2.13.0      # optional: only needed for the MLP experiments (src/models.py), not for src/final_model.py

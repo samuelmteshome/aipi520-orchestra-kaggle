@@ -29,3 +29,6 @@ final_analysis/
 
 # Run logs
 independent/*.out
+
+# Local assistant notes (not part of the submission)
+CLAUDE.md
