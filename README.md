@@ -175,7 +175,7 @@ Final procedure uses 5 outer x 3 inner folds, stratified by outcome and previous
 | Corrected Reference | 0.9845   |       -      |
 | Ensemble            | 0.9851   |    0.97991   |
 
-the initial rows use five repetitions fo fvive-fold CV with hyperparameters selected using the first repetition. Because tuning and evaluation overlapped there may be overfitting here. the final reference and ensemble used outer folds so their CV values are not comparable to previous rows.
+the initial rows use five repetitions of five-fold CV with hyperparameters selected using the first repetition. Because tuning and evaluation overlapped there may be overfitting here. the final reference and ensemble used outer folds so their CV values are not comparable to previous rows.
 
 
 
